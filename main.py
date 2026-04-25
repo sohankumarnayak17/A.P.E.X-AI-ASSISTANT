@@ -2,6 +2,7 @@ import os
 import eel
 from playsound import playsound
 from engine.feature import *
+from engine.command import *
 
 def playAssistantSound():
     music_dir = "front\\assets\\audio\\radio.mp3"
