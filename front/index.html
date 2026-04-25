@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A.P.E.X</title>
+    <link rel="stylesheet" href="style.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
+    />
+  </head>
+
+  <body>
+    <div class="container">
+
+      <!-- SiriWave (hidden by default, shown on mic click) -->
+      <div id="siri-container" hidden></div>
+      <div class="scanlines"></div>
+
+      <!-- Top HUD Bar -->
+      <div class="hud-top">
+        <span class="hud-label">A.P.E.X // ONLINE</span>
+        <span class="hud-time" id="clock"></span>
+        <span class="hud-label">SYS: NOMINAL</span>
+      </div>
+
+      <!-- Main Container -->
+      <div class="main">
+
+        <!-- Triangle Hologram (visible by default, hidden on mic click) -->
+        <div class="orb-wrapper" id="orb-wrapper">
+          <div class="holo-orb">
+            <div class="ring ring-1">
+              <div class="ring ring-2">
+                <div class="ring ring-3"></div>
+              </div>
+            </div>
+            <div class="ring ring-4"></div>
+            <div class="orb-scan"></div>
+            <div class="orbit-dot dot-1"></div>
+            <div class="orbit-dot dot-2"></div>
+            <div class="orbit-dot dot-3"></div>
+            <div class="orb-core">
+              <div class="core-inner"></div>
+            </div>
+          </div>
+          <p class="orb-status" id="status">STANDBY</p>
+        </div>
+
+        <!-- Chat / Response Display -->
+        <div class="response-box" id="responseBox">
+          <p id="responseText">Awaiting your command, Boss.</p>
+        </div>
+
+        <!-- Transcript -->
+        <div class="transcript-box" id="transcriptBox">
+          <span class="label">YOU &rsaquo;</span>
+          <span id="transcriptText">...</span>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+          <button class="btn-talk" id="talkBtn">&#9679; HOLD TO SPEAK</button>
+          <button class="btn-mute" id="muteBtn">MUTE</button>
+        </div>
+
+      </div>
+
+      <!-- Chat Input Section -->
+      <div class="col-md-12">
+        <div class="text-center">
+          <div id="textinput" class="d-flex">
+            <input type="text" name="chatbox" id="chatbox" placeholder="type here" />
+            <button id="mic" class="glow-on-hover"><i class="bi bi-mic"></i></button>
+            <button id="chat" class="glow-on-hover"><i class="bi bi-chat"></i></button>
+            <button id="setting" class="glow-on-hover"><i class="bi bi-gear"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom HUD Bar -->
+      <div class="hud-bottom">
+        <span class="hud-label" id="listenStatus">MIC: OFF</span>
+        <span class="hud-label">APEX v1.0</span>
+        <span class="hud-label" id="apiStatus">API: CONNECTED</span>
+      </div>
+
+    </div>
+
+    <script src="/eel.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.11.2/jquery-ui.min.js"></script>
+    <script src="https://unpkg.com/siriwave/dist/siriwave.umd.min.js"></script>
+    <script src="main.js"></script>
+    <script src="renderer.js"></script>
+
+  </body>
+</html>

@@ -1,0 +1,80 @@
+/* ── TRIANGLE HOLOGRAM (add to bottom of style.css) ── */
+
+.holo-orb {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.holo-svg {
+  animation: holoFloat 5s ease-in-out infinite;
+}
+
+@keyframes holoFloat {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-8px); }
+}
+
+/* Main triangle pulse + flicker */
+.tri-main {
+  animation: triPulse 3s ease-in-out infinite, triFlicker 7s step-end infinite;
+}
+
+@keyframes triPulse {
+  0%, 100% { opacity: 0.9; filter: drop-shadow(0 0 6px #8b0000); }
+  50%       { opacity: 0.6; filter: drop-shadow(0 0 18px #cc0000); }
+}
+
+@keyframes triFlicker {
+  0%,  100% { opacity: 1;   }
+  93%        { opacity: 0.3; }
+  94%        { opacity: 1;   }
+  97%        { opacity: 0.5; }
+  98%        { opacity: 1;   }
+}
+
+/* Ellipse rings spin */
+.ring-svg-1 {
+  transform-origin: 100px 100px;
+  animation: svgSpin 9s linear infinite;
+}
+.ring-svg-2 {
+  transform-origin: 100px 100px;
+  animation: svgSpin 13s linear infinite reverse;
+}
+
+@keyframes svgSpin {
+  from { transform: rotate(0deg);   }
+  to   { transform: rotate(360deg); }
+}
+
+/* Scan line sweep */
+.orb-scan-1 {
+  animation: triScan 3.5s ease-in-out infinite;
+}
+.orb-scan-2 {
+  animation: triScan 3.5s ease-in-out infinite 1.75s;
+}
+
+@keyframes triScan {
+  0%   { opacity: 0; transform: translateY(-60px); }
+  15%  { opacity: 0.7; }
+  85%  { opacity: 0.7; }
+  100% { opacity: 0; transform: translateY(60px); }
+}
+
+/* Listening state — triangle version */
+body.listening .tri-main {
+  animation: triPulse 0.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 24px #ff1a1a);
+}
+body.listening .ring-svg-1 { animation-duration: 3s; }
+body.listening .ring-svg-2 { animation-duration: 5s; }
+body.listening .orb-status {
+  color: var(--red-glow);
+  text-shadow: 0 0 15px var(--red-glow);
+  animation: corePulse 0.8s ease-in-out infinite;
+}
