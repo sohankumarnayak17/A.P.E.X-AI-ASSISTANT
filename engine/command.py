@@ -12,14 +12,11 @@ def speak(text):
     engine.runAndWait()
 
 def get_best_mic():
-    """Only pick INPUT devices, skip output devices like speakers/headphones."""
     p = pyaudio.PyAudio()
     mic_names = sr.Microphone.list_microphone_names()
-
     input_keywords = ['microphone', 'mic in', 'bluetooth', 'headset', 'array']
     skip_keywords  = ['speaker', 'output', 'hap', 'stereo mix', 'headphones 1',
                       'headphones 2', 'pc speaker']
-
     for i, name in enumerate(mic_names):
         name_lower = name.lower()
         if any(skip in name_lower for skip in skip_keywords):
@@ -33,7 +30,6 @@ def get_best_mic():
                     return i
             except:
                 continue
-
     p.terminate()
     print("Falling back to mic index 1")
     return 1
@@ -58,11 +54,11 @@ def takecommand():
         eel.showhood()()
         return query.lower()
     except sr.WaitTimeoutError:
-        print("No speech detected. Try again.")
+        print("No speech detected.")
         speak("No speech detected. Try again Boss.")
         return ""
     except sr.UnknownValueError:
-        print("Could not understand. Try again.")
+        print("Could not understand.")
         speak("Could not understand. Try again Boss.")
         return ""
     except Exception as e:
