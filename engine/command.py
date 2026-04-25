@@ -15,7 +15,8 @@ def get_best_mic():
     p = pyaudio.PyAudio()
     mic_names = sr.Microphone.list_microphone_names()
     input_keywords = ['microphone', 'mic in', 'bluetooth', 'headset', 'array']
-    skip_keywords = ['speaker', 'output', 'hap', 'stereo mix', 'headphones 1', 'headphones 2', 'pc speaker']
+    skip_keywords  = ['speaker', 'output', 'hap', 'stereo mix', 'headphones 1',
+                      'headphones 2', 'pc speaker']
     for i, name in enumerate(mic_names):
         name_lower = name.lower()
         if any(skip in name_lower for skip in skip_keywords):
@@ -61,6 +62,52 @@ def takecommand():
         print('Error: ' + str(e))
         return ''
 
-print('Testing mic...')
-text = takecommand()
-print('Final query: ' + text)
+@eel.expose
+def processQuery(query):
+    """Process the query and return a response."""
+    query = query.lower()
+    print('Processing: ' + query)
+
+    if 'time' in query:
+        import datetime
+        now = datetime.datetime.now().strftime("%H:%M:%S")
+        response = 'The time is ' + now + ', Boss.'
+
+    elif 'date' in query:
+        import datetime
+        today = datetime.datetime.now().strftime("%A, %d %B %Y")
+        response = 'Today is ' + today + ', Boss.'
+
+    elif 'your name' in query or 'who are you' in query:
+        response = 'I am APEX, your personal AI assistant, Boss.'
+
+    elif 'hello' in query or 'hi' in query:
+        response = 'Hello Boss. How can I assist you today?'
+
+    elif 'open youtube' in query:
+        import webbrowser
+        webbrowser.open('https://www.youtube.com')
+        response = 'Opening YouTube, Boss.'
+
+    elif 'open google' in query:
+        import webbrowser
+        webbrowser.open('https://www.google.com')
+        response = 'Opening Google, Boss.'
+
+    elif 'search' in query:
+        import webbrowser
+        search_query = query.replace('search', '').strip()
+        webbrowser.open('https://www.google.com/search?q=' + search_query)
+        response = 'Searching for ' + search_query + ', Boss.'
+
+    elif 'shutdown' in query or 'exit' in query or 'quit' in query:
+        response = 'Shutting down. Goodbye Boss.'
+        speak(response)
+        import os
+        os._exit(0)
+
+    else:
+        response = 'I heard you say: ' + query + '. I am still learning, Boss.'
+
+    speak(response)
+    return response
