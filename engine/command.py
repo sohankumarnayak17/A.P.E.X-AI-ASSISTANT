@@ -4,7 +4,6 @@ import pyaudio
 import eel
 import datetime
 import webbrowser
-import requests
 import os
 
 def speak(text):
@@ -68,7 +67,6 @@ def processQuery(query):
     query = query.lower().strip()
     print('Processing: ' + query)
 
-    # ── OPEN (must be first) ──
     if 'open' in query:
         app = query.replace('open', '').strip()
         if app:
@@ -84,53 +82,40 @@ def processQuery(query):
         now = datetime.datetime.now().strftime("%H:%M:%S")
         response = 'The time is ' + now + ', Boss.'
 
-    elif 'date' in query:
+    elif 'date' in query or 'today' in query:
         today = datetime.datetime.now().strftime("%A, %d %B %Y")
         response = 'Today is ' + today + ', Boss.'
 
     elif 'your name' in query or 'who are you' in query:
         response = 'I am APEX, your personal AI assistant, Boss.'
 
-    elif 'hello' in query or 'hi' in query:
+    elif 'hello' in query or 'hi' in query or 'hey' in query:
         response = 'Hello Boss. How can I assist you today?'
 
-    elif 'search' in query:
-        search_query = query.replace('search', '').strip()
+    elif 'search' in query or 'look up' in query:
+        search_query = query.replace('search', '').replace('look up', '').strip()
         webbrowser.open('https://www.google.com/search?q=' + search_query)
         response = 'Searching for ' + search_query + ', Boss.'
 
-    elif 'shutdown' in query or 'exit' in query or 'quit' in query:
+    elif 'youtube' in query:
+        search_query = query.replace('youtube', '').replace('play', '').replace('search', '').strip()
+        if search_query:
+            webbrowser.open('https://www.youtube.com/results?search_query=' + search_query)
+            response = 'Searching YouTube for ' + search_query + ', Boss.'
+        else:
+            webbrowser.open('https://www.youtube.com')
+            response = 'Opening YouTube, Boss.'
+
+    elif 'shutdown' in query or 'exit' in query or 'quit' in query or 'bye' in query:
         response = 'Shutting down. Goodbye Boss.'
         speak(response)
         os._exit(0)
 
     else:
-        response = askClaude(query)
+        response = 'I did not understand that, Boss. Please try again.'
 
     speak(response)
     return response
-
-def askClaude(query):
-    try:
-        res = requests.post(
-            'https://api.anthropic.com/v1/messages',
-            headers={
-                'x-api-key': 'YOUR_API_KEY_HERE',
-                'anthropic-version': '2023-06-01',
-                'content-type': 'application/json'
-            },
-            json={
-                'model': 'claude-sonnet-4-20250514',
-                'max_tokens': 200,
-                'system': 'You are APEX, a sharp and efficient personal AI assistant. You call the user Boss. Keep responses under 3 sentences. Never break character.',
-                'messages': [{'role': 'user', 'content': query}]
-            }
-        )
-        data = res.json()
-        return data['content'][0]['text']
-    except Exception as e:
-        print('Claude API error: ' + str(e))
-        return 'I am having trouble connecting, Boss. Check the API key.'
 
 @eel.expose
 def allcommand():
