@@ -5,6 +5,7 @@ import eel
 import datetime
 import webbrowser
 import os
+import subprocess
 
 def speak(text):
     engine = pyttsx3.init('sapi5')
@@ -36,6 +37,41 @@ def get_best_mic():
     p.terminate()
     print('Falling back to mic index 1')
     return 1
+
+# ── APP PATH MAP ──
+APP_MAP = {
+    'spotify':      os.path.expandvars(r'%APPDATA%\Spotify\Spotify.exe'),
+    'chrome':       r'C:\Program Files\Google\Chrome\Application\chrome.exe',
+    'brave':        os.path.expandvars(r'%LOCALAPPDATA%\BraveSoftware\Brave-Browser\Application\brave.exe'),
+    'edge':         r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
+    'notepad':      'notepad.exe',
+    'calculator':   'calc.exe',
+    'paint':        'mspaint.exe',
+    'discord':      os.path.expandvars(r'%LOCALAPPDATA%\Discord\Update.exe'),
+    'whatsapp':     os.path.expandvars(r'%LOCALAPPDATA%\WhatsApp\WhatsApp.exe'),
+    'vs code':      os.path.expandvars(r'%LOCALAPPDATA%\Programs\Microsoft VS Code\Code.exe'),
+    'vscode':       os.path.expandvars(r'%LOCALAPPDATA%\Programs\Microsoft VS Code\Code.exe'),
+    'file explorer':'explorer.exe',
+    'explorer':     'explorer.exe',
+    'task manager': 'taskmgr.exe',
+    'word':         r'C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE',
+    'excel':        r'C:\Program Files\Microsoft Office\root\Office16\EXCEL.EXE',
+    'powerpoint':   r'C:\Program Files\Microsoft Office\root\Office16\POWERPNT.EXE',
+}
+
+def openApp(app):
+    app = app.lower().strip()
+    if app in APP_MAP:
+        path = APP_MAP[app]
+        if 'discord' in app:
+            subprocess.Popen([path, '--processStart', 'Discord.exe'])
+        else:
+            subprocess.Popen(path)
+        return True
+    else:
+        # Try with start command as fallback
+        result = os.system('start ' + app)
+        return result == 0
 
 @eel.expose
 def takecommand():
@@ -71,7 +107,7 @@ def processQuery(query):
         app = query.replace('open', '').strip()
         if app:
             speak('Opening ' + app + ', Boss.')
-            os.system('start ' + app)
+            openApp(app)
             return 'Opening ' + app + ', Boss.'
         else:
             response = 'What would you like me to open, Boss?'
