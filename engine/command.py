@@ -6,7 +6,13 @@ import datetime
 import webbrowser
 import os
 import subprocess
+import sqlite3
 
+DB_PATH = "APEX.db"
+
+# ══════════════════════════════
+#   SPEECH
+# ══════════════════════════════
 def speak(text):
     engine = pyttsx3.init('sapi5')
     voices = engine.getProperty('voices')
@@ -15,6 +21,10 @@ def speak(text):
     engine.say(text)
     engine.runAndWait()
 
+
+# ══════════════════════════════
+#   MIC SELECTION
+# ══════════════════════════════
 def get_best_mic():
     p = pyaudio.PyAudio()
     mic_names = sr.Microphone.list_microphone_names()
@@ -32,47 +42,69 @@ def get_best_mic():
                     print('Using mic ' + str(i) + ': ' + name)
                     p.terminate()
                     return i
-            except:
+            except Exception:
                 continue
     p.terminate()
     print('Falling back to mic index 1')
     return 1
 
-# ── APP PATH MAP ──
-APP_MAP = {
-    'spotify':      os.path.expandvars(r'%APPDATA%\Spotify\Spotify.exe'),
-    'chrome':       r'C:\Program Files\Google\Chrome\Application\chrome.exe',
-    'brave':        os.path.expandvars(r'%LOCALAPPDATA%\BraveSoftware\Brave-Browser\Application\brave.exe'),
-    'edge':         r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
-    'notepad':      'notepad.exe',
-    'calculator':   'calc.exe',
-    'paint':        'mspaint.exe',
-    'discord':      os.path.expandvars(r'%LOCALAPPDATA%\Discord\Update.exe'),
-    'whatsapp':     os.path.expandvars(r'%LOCALAPPDATA%\WhatsApp\WhatsApp.exe'),
-    'vs code':      os.path.expandvars(r'%LOCALAPPDATA%\Programs\Microsoft VS Code\Code.exe'),
-    'vscode':       os.path.expandvars(r'%LOCALAPPDATA%\Programs\Microsoft VS Code\Code.exe'),
-    'file explorer':'explorer.exe',
-    'explorer':     'explorer.exe',
-    'task manager': 'taskmgr.exe',
-    'word':         r'C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE',
-    'excel':        r'C:\Program Files\Microsoft Office\root\Office16\EXCEL.EXE',
-    'powerpoint':   r'C:\Program Files\Microsoft Office\root\Office16\POWERPNT.EXE',
-}
 
-def openApp(app):
-    app = app.lower().strip()
-    if app in APP_MAP:
-        path = APP_MAP[app]
-        if 'discord' in app:
-            subprocess.Popen([path, '--processStart', 'Discord.exe'])
-        else:
-            subprocess.Popen(path)
+# ══════════════════════════════
+#   DATABASE LOOKUP
+# ══════════════════════════════
+def db_lookup(name: str):
+    """
+    Query APEX.db for the given name.
+    Returns ('web', url) | ('app', path) | (None, None)
+    """
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            c = conn.cursor()
+
+            # Check web_command first
+            c.execute("SELECT url FROM web_command WHERE name = ?", (name,))
+            row = c.fetchone()
+            if row:
+                return ('web', row[0])
+
+            # Then check sys_command
+            c.execute("SELECT path FROM sys_command WHERE name = ?", (name,))
+            row = c.fetchone()
+            if row:
+                return ('app', row[0])
+
+    except Exception as e:
+        print('[APEX] DB error: ' + str(e))
+
+    return (None, None)
+
+
+# ══════════════════════════════
+#   OPEN APP / SITE
+# ══════════════════════════════
+def openApp(name: str) -> bool:
+    name = name.lower().strip()
+    kind, value = db_lookup(name)
+
+    if kind == 'web':
+        webbrowser.open(value)
         return True
-    else:
-        # Try with start command as fallback
-        result = os.system('start ' + app)
-        return result == 0
 
+    if kind == 'app':
+        if 'discord' in name:
+            subprocess.Popen([value, '--processStart', 'Discord.exe'])
+        else:
+            subprocess.Popen(value)
+        return True
+
+    # Nothing found in DB
+    speak(f"Sorry Boss, I couldn't find {name} in my database.")
+    return False
+
+
+# ══════════════════════════════
+#   VOICE INPUT
+# ══════════════════════════════
 @eel.expose
 def takecommand():
     r = sr.Recognizer()
@@ -98,43 +130,58 @@ def takecommand():
         print('Error: ' + str(e))
         return ''
 
+
+# ══════════════════════════════
+#   QUERY PROCESSING
+# ══════════════════════════════
 @eel.expose
-def processQuery(query):
+def processQuery(query: str) -> str:
     query = query.lower().strip()
     print('Processing: ' + query)
 
-    if 'open' in query:
-        app = query.replace('open', '').strip()
-        if app:
-            speak('Opening ' + app + ', Boss.')
-            openApp(app)
-            return 'Opening ' + app + ', Boss.'
+    # ── OPEN ──
+    if query.startswith('open '):
+        target = query[5:].strip()           # everything after "open "
+        if target:
+            speak('Opening ' + target + ', Boss.')
+            openApp(target)
+            return 'Opening ' + target + ', Boss.'
         else:
             response = 'What would you like me to open, Boss?'
             speak(response)
             return response
 
+    # ── TIME ──
     elif 'time' in query:
         now = datetime.datetime.now().strftime("%H:%M:%S")
         response = 'The time is ' + now + ', Boss.'
 
+    # ── DATE ──
     elif 'date' in query or 'today' in query:
         today = datetime.datetime.now().strftime("%A, %d %B %Y")
         response = 'Today is ' + today + ', Boss.'
 
+    # ── IDENTITY ──
     elif 'your name' in query or 'who are you' in query:
         response = 'I am APEX, your personal AI assistant, Boss.'
 
-    elif 'hello' in query or 'hi' in query or 'hey' in query:
+    # ── GREET ──
+    elif any(greet in query for greet in ('hello', 'hi', 'hey')):
         response = 'Hello Boss. How can I assist you today?'
 
+    # ── SEARCH ──
     elif 'search' in query or 'look up' in query:
         search_query = query.replace('search', '').replace('look up', '').strip()
         webbrowser.open('https://www.google.com/search?q=' + search_query)
         response = 'Searching for ' + search_query + ', Boss.'
 
+    # ── YOUTUBE ──
     elif 'youtube' in query:
-        search_query = query.replace('youtube', '').replace('play', '').replace('search', '').strip()
+        search_query = (query
+                        .replace('youtube', '')
+                        .replace('play', '')
+                        .replace('search', '')
+                        .strip())
         if search_query:
             webbrowser.open('https://www.youtube.com/results?search_query=' + search_query)
             response = 'Searching YouTube for ' + search_query + ', Boss.'
@@ -142,21 +189,27 @@ def processQuery(query):
             webbrowser.open('https://www.youtube.com')
             response = 'Opening YouTube, Boss.'
 
-    elif 'shutdown' in query or 'exit' in query or 'quit' in query or 'bye' in query:
+    # ── EXIT ──
+    elif any(word in query for word in ('shutdown', 'exit', 'quit', 'bye')):
         response = 'Shutting down. Goodbye Boss.'
         speak(response)
         os._exit(0)
 
+    # ── FALLBACK ──
     else:
         response = 'I did not understand that, Boss. Please try again.'
 
     speak(response)
     return response
 
+
+# ══════════════════════════════
+#   COMBINED VOICE COMMAND
+# ══════════════════════════════
 @eel.expose
-def allcommand():
+def allcommand() -> str:
     query = takecommand()
     print('Query: ' + query)
-    if query and query.strip() != '':
+    if query and query.strip():
         return processQuery(query)
     return ''
