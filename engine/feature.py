@@ -3,7 +3,7 @@ import eel
 import os
 import pywhatkit as kit
 from engine.config import ASSISTANT_NAME
-
+from engine.helper import extract_yt_term
 def playAssistantSound():
     music_dir = "front\\assets\\audio\\radio.mp3"
     playsound(music_dir)
