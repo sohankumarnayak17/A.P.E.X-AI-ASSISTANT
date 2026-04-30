@@ -61,13 +61,11 @@ def db_lookup(name: str):
         with sqlite3.connect(DB_PATH) as conn:
             c = conn.cursor()
 
-            # Check web_command first
             c.execute("SELECT url FROM web_command WHERE name = ?", (name,))
             row = c.fetchone()
             if row:
                 return ('web', row[0])
 
-            # Then check sys_command
             c.execute("SELECT path FROM sys_command WHERE name = ?", (name,))
             row = c.fetchone()
             if row:
@@ -97,7 +95,6 @@ def openApp(name: str) -> bool:
             subprocess.Popen(value)
         return True
 
-    # Nothing found in DB
     speak(f"Sorry Boss, I couldn't find {name} in my database.")
     return False
 
@@ -141,7 +138,7 @@ def processQuery(query: str) -> str:
 
     # ── OPEN ──
     if query.startswith('open '):
-        target = query[5:].strip()           # everything after "open "
+        target = query[5:].strip()
         if target:
             speak('Opening ' + target + ', Boss.')
             openApp(target)

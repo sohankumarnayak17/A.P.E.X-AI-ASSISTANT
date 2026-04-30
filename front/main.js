@@ -1,6 +1,6 @@
 $(document).ready(function () {
 
-  // SiriWave initialisation
+  // ── SIRIWAVE INIT ──
   var siriWave = new SiriWave({
     container: document.getElementById("siri-container"),
     width: 640,
@@ -11,7 +11,7 @@ $(document).ready(function () {
     autostart: true,
   });
 
-  // ── TYPEWRITER for response box ──
+  // ── TYPEWRITER ──
   function typeWrite(element, text, speed) {
     $(element).text("");
     var i = 0;
@@ -29,13 +29,9 @@ $(document).ready(function () {
   function sendToApex(query) {
     if (!query || query.trim() === "") return;
 
-    // Show user query in transcript
     $("#transcriptText").text(query);
-
-    // Show thinking in response box
     $("#responseText").text("Processing...");
 
-    // Send to Python via eel
     eel.processQuery(query)(function (response) {
       if (response) {
         typeWrite("#responseText", response, 40);
@@ -45,31 +41,28 @@ $(document).ready(function () {
     });
   }
 
-  // ── TRIGGER MIC ──
+  // ── START LISTENING ──
   function startListening() {
     $("#orb-wrapper").attr("hidden", true);
     $("#siri-container").removeAttr("hidden");
     $("#transcriptText").text("Listening...");
     $("#responseText").text("");
 
-    eel.takecommand()(function (query) {
+    eel.allcommand()(function (response) {
       $("#orb-wrapper").removeAttr("hidden");
       $("#siri-container").attr("hidden", true);
-      if (query && query.trim() !== "") {
-        sendToApex(query);
+      if (response && response.trim() !== "") {
+        typeWrite("#responseText", response, 40);
       } else {
         $("#transcriptText").text("Could not hear you. Try again.");
       }
     });
   }
 
-  // Bottom mic icon
-  $("#mic").click(function () { startListening(); });
+  // ── BUTTON BINDINGS ──
+  $("#mic").click(function ()    { startListening(); });
+  $("#talkBtn").click(function (){ startListening(); });
 
-  // HOLD TO SPEAK button
-  $("#talkBtn").click(function () { startListening(); });
-
-  // CHAT BUTTON
   $("#chat").click(function () {
     var message = $("#chatbox").val().trim();
     if (message) {
@@ -78,9 +71,15 @@ $(document).ready(function () {
     }
   });
 
-  // ENTER KEY
   $("#chatbox").keypress(function (e) {
     if (e.which === 13) { $("#chat").click(); }
   });
+
+  // ── KEYBOARD SHORTCUT: Meta + A ──
+  document.addEventListener("keyup", function (e) {
+    if (e.key === "a" && e.metaKey) {
+      startListening();
+    }
+  }, false);
 
 });

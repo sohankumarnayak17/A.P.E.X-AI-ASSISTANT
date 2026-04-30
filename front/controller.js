@@ -1,4 +1,4 @@
-// ── APEX renderer.js ──
+// ── APEX controller.js ──
 
 // Display spoken message
 eel.expose(DisplayMessage);
