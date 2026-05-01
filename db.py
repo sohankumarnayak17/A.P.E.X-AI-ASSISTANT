@@ -1,4 +1,6 @@
 import sqlite3
+import csv
+import os
 
 conn = sqlite3.connect("APEX.db")
 cursor = conn.cursor()
@@ -82,6 +84,27 @@ cursor.execute("""
         email         VARCHAR(225)
     )
 """)
+
+# ══════════════════════════════
+#   IMPORT CONTACTS FROM CSV
+# ══════════════════════════════
+# CSV file must have columns: name, mobile_number, email
+# Place contacts.csv in the same folder as db.py
+
+if os.path.exists("contacts.csv"):
+    with open("contacts.csv", "r", encoding="utf-8") as csvfile:   # ✅ = not +
+        csvreader = csv.DictReader(csvfile)                         # ✅ DictReader reads by column name
+        for row in csvreader:
+            try:
+                cursor.execute(
+                    "INSERT OR IGNORE INTO contacts (name, mobile_number, email) VALUES (?, ?, ?)",
+                    (row["name"], row["mobile_number"], row["email"])  # ✅ proper SQL, correct column names
+                )
+            except Exception as e:
+                print("[APEX] Skipping row due to error: " + str(e))
+    print("[APEX] Contacts imported from contacts.csv")
+else:
+    print("[APEX] No contacts.csv found — skipping contact import.")
 
 conn.commit()
 conn.close()
