@@ -7,6 +7,7 @@ import webbrowser
 import os
 import subprocess
 import sqlite3
+from engine.helper import remove_words
 
 DB_PATH = "APEX.db"
 
@@ -75,6 +76,29 @@ def db_lookup(name: str):
         print('[APEX] DB error: ' + str(e))
 
     return (None, None)
+
+
+# ══════════════════════════════
+#   CONTACT LOOKUP
+# ══════════════════════════════
+def contact_lookup(name: str):
+    """
+    Search contacts table by name (partial match).
+    Returns mobile_number or None.
+    """
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            c = conn.cursor()
+            c.execute(
+                "SELECT mobile_number FROM contacts WHERE name LIKE ?",
+                ('%' + name + '%',)
+            )
+            row = c.fetchone()
+            if row:
+                return row[0]
+    except Exception as e:
+        print('[APEX] Contact lookup error: ' + str(e))
+    return None
 
 
 # ══════════════════════════════
@@ -147,6 +171,26 @@ def processQuery(query: str) -> str:
             response = 'What would you like me to open, Boss?'
             speak(response)
             return response
+
+    # ── SEND MESSAGE / TEXT ──
+    elif any(word in query for word in ('text', 'message', 'whatsapp')):
+        words_to_remove = ['make', 'a', 'an', 'send', 'text', 'message',
+                           'whatsapp', 'to', 'on', 'call', 'phone']
+        contact_name = remove_words(query, words_to_remove).strip()
+
+        if contact_name:
+            number = contact_lookup(contact_name)
+            if number:
+                speak(f'Opening WhatsApp to message {contact_name}, Boss.')
+                webbrowser.open(f'https://wa.me/{number}')
+                response = f'Opening WhatsApp to message {contact_name}, Boss.'
+            else:
+                response = f'Sorry Boss, I could not find {contact_name} in your contacts.'
+                speak(response)
+        else:
+            response = 'Who would you like to message, Boss?'
+            speak(response)
+        return response
 
     # ── TIME ──
     elif 'time' in query:
