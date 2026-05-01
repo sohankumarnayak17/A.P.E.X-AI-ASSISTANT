@@ -71,6 +71,18 @@ cursor.executemany(
     "INSERT OR IGNORE INTO web_command (name, url) VALUES (?, ?)", sites
 )
 
+# ══════════════════════════════
+#   CONTACTS TABLE
+# ══════════════════════════════
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS contacts (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        name          VARCHAR(100) UNIQUE,
+        mobile_number VARCHAR(20),
+        email         VARCHAR(225)
+    )
+""")
+
 conn.commit()
 conn.close()
-print("[APEX] Database ready — sys_command and web_command tables loaded.")
+print("[APEX] Database ready — sys_command, web_command and contacts tables loaded.")
