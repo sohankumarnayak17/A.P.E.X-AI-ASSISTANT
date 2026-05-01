@@ -85,4 +85,4 @@ cursor.execute("""
 
 conn.commit()
 conn.close()
-print("[APEX] Database ready — sys_command, web_command and contacts tables loaded.")
+print("[APEX] Database ready — sys_command, web_command and copyntacts tables loaded.")
