@@ -9,6 +9,13 @@ def extract_yt_term(command):
 
 def remove_words(input_string, words_to_remove):
     words = input_string.split()
-    filtered_words = [word for word in words if word.lower() not in words_to_remove]  # ✅ word not words
-    result_string = ' '.join(filtered_words)                                           # ✅ join not joon, no space in filtered_words
+    filtered_words = [word for word in words if word.lower() not in words_to_remove]
+    result_string = ' '.join(filtered_words)
     return result_string
+
+
+if __name__ == "__main__":
+    input_string = "make a phone call"
+    words_to_remove = ["make", "a", "to", "phone"]
+    result = remove_words(input_string, words_to_remove)
+    print(result)
