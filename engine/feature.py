@@ -7,10 +7,13 @@ import pvporcupine
 import struct
 import time
 import subprocess
+import sqlite3
 import pyautogui as autogui
-from urllib.parse import quote                              # ✅ import quote for URL encoding
+from urllib.parse import quote
 from engine.config import ASSISTANT_NAME
 from engine.helper import extract_yt_term
+
+DB_PATH = "APEX.db"
 
 
 @eel.expose
@@ -100,38 +103,59 @@ def hotkey():
             paud.terminate()
 
 
-def whatsapp(mobile_no, message, flag, name):              # ✅ closing ) and colon
-    if flag == "message":                                  # ✅ proper if with == and colon
+# ══════════════════════════════
+#   FIND CONTACT
+# ══════════════════════════════
+def findcontact(query: str):
+    """
+    Search contacts table for a name mentioned in the query.
+    Returns (mobile_number, name) or (0, '')
+    """
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            c = conn.cursor()
+            c.execute("SELECT name, mobile_number FROM contacts")
+            rows = c.fetchall()
+            for name, mobile_number in rows:
+                if name.lower() in query.lower():
+                    return (mobile_number, name)
+    except Exception as e:
+        print("[APEX] findcontact error: " + str(e))
+    return (0, '')
+
+
+# ══════════════════════════════
+#   WHATSAPP
+# ══════════════════════════════
+def whatsapp(mobile_no, message, flag, name):
+    if flag == "message":
         target_tab = 12
         apex_message = "Message sent successfully."
 
-    elif flag == "call":                                   # ✅ elif with colon
+    elif flag == "call":
         target_tab = 7
         message = ""
         apex_message = "Calling " + name + ", Boss."
 
-    else:                                                  # ✅ else with colon
+    else:
         target_tab = 6
         message = ""
         apex_message = "Starting video call with " + name + ", Boss."
 
-    # Encode the message for URL
-    encoded_message = quote(message)                       # ✅ quote not quote(message) typo
+    encoded_message = quote(message)
 
-    # Construct the WhatsApp URL
-    whatsapp_url = f"whatsapp://send?phone={mobile_no}&text={encoded_message}"  # ✅ f"..." no space, correct var name
-
-    full_command = f"start {whatsapp_url}"                 # ✅ proper f-string
+    whatsapp_url = f"whatsapp://send?phone={mobile_no}&text={encoded_message}"
+    full_command = f"start {whatsapp_url}"
 
     subprocess.run(full_command, shell=True)
     time.sleep(5)
     subprocess.run(full_command, shell=True)
 
-    autogui.hotkey("ctrl", "f")                           # ✅ autogui not pyauntogui, "f" as string
+    autogui.hotkey("ctrl", "f")
 
-    for i in range(1, target_tab):                        # ✅ proper for loop
-        autogui.hotkey("tab")                             # ✅ autogui not pyautogui,
+    for i in range(1, target_tab):
+        autogui.hotkey("tab")
 
-    autogui.hotkey("enter")                               # ✅ proper indentation
+    autogui.hotkey("enter")
 
-    speak(apex_message)                                    # ✅ apex_message not apexmessage
+    speak(apex_message)
