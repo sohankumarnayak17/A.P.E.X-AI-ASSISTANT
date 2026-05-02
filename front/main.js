@@ -59,6 +59,22 @@ $(document).ready(function () {
     });
   }
 
+  // ── PLAY ASSISTANT (text input submit) ──
+  function playassistant(message) {
+    if (message !== "") {                                  // ✅ proper if syntax
+      $("#orb-wrapper").attr("hidden", true);             // ✅ closed quotes
+      $("#siri-container").removeAttr("hidden");          // ✅ show siriwave not hide oval twice
+      eel.processQuery(message)(function (response) {     // ✅ processQuery not allcommandds
+        $("#orb-wrapper").removeAttr("hidden");
+        $("#siri-container").attr("hidden", true);
+        if (response && response.trim() !== "") {
+          typeWrite("#responseText", response, 40);
+        }
+      });
+      $("#chatbox").val("");                              // ✅ correct selector with #
+    }
+  }
+
   // ── BUTTON BINDINGS ──
   $("#mic").click(function ()    { startListening(); });
   $("#talkBtn").click(function (){ startListening(); });
@@ -71,11 +87,19 @@ $(document).ready(function () {
     }
   });
 
-  $("#chatbox").keypress(function (e) {
-    if (e.which === 13) { $("#chat").click(); }
+  // ── SEND BUTTON ──
+  $("#sendbtn").click(function () {                       // ✅ wired up sendbtn
+    var message = $("#chatbox").val().trim();
+    if (message) {
+      playassistant(message);
+    }
   });
 
-  // ── KEYBOARD SHORTCUT: Meta + A ──
+  $("#chatbox").keypress(function (e) {
+    if (e.which === 13) { $("#sendbtn").click(); }        // ✅ enter triggers sendbtn
+  });
+
+ 
   document.addEventListener("keyup", function (e) {
     if (e.key === "a" && e.metaKey) {
       startListening();
