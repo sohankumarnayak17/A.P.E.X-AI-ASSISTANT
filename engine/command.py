@@ -8,6 +8,7 @@ import os
 import subprocess
 import sqlite3
 from engine.helper import remove_words
+from engine.feature import findcontact, whatsapp             # ✅ correct import
 
 DB_PATH = "APEX.db"
 
@@ -54,27 +55,19 @@ def get_best_mic():
 #   DATABASE LOOKUP
 # ══════════════════════════════
 def db_lookup(name: str):
-    """
-    Query APEX.db for the given name.
-    Returns ('web', url) | ('app', path) | (None, None)
-    """
     try:
         with sqlite3.connect(DB_PATH) as conn:
             c = conn.cursor()
-
             c.execute("SELECT url FROM web_command WHERE name = ?", (name,))
             row = c.fetchone()
             if row:
                 return ('web', row[0])
-
             c.execute("SELECT path FROM sys_command WHERE name = ?", (name,))
             row = c.fetchone()
             if row:
                 return ('app', row[0])
-
     except Exception as e:
         print('[APEX] DB error: ' + str(e))
-
     return (None, None)
 
 
@@ -82,10 +75,6 @@ def db_lookup(name: str):
 #   CONTACT LOOKUP
 # ══════════════════════════════
 def contact_lookup(name: str):
-    """
-    Search contacts table by name (partial match).
-    Returns mobile_number or None.
-    """
     try:
         with sqlite3.connect(DB_PATH) as conn:
             c = conn.cursor()
@@ -172,12 +161,32 @@ def processQuery(query: str) -> str:
             speak(response)
             return response
 
-    # ── SEND MESSAGE / TEXT ──
+    # ── WHATSAPP MESSAGE / CALL / VIDEO CALL ──
+    elif any(word in query for word in ('send message', 'phone call', 'video call')):  # ✅ inside processQuery
+        contact_no, name = findcontact(query)                  # ✅ unpack tuple from findcontact
+        if contact_no != 0:
+            if 'send message' in query:
+                flag = 'message'
+                speak('What message would you like to send, Boss?')
+                message = takecommand()                        # ✅ listen for the message
+            elif 'phone call' in query:                        # ✅ phone call not phonecall
+                flag = 'call'
+                message = ''
+            else:
+                flag = 'videocall'
+                message = ''
+            whatsapp(contact_no, message, flag, name)
+            response = f'Done, Boss.'
+        else:
+            response = f'Sorry Boss, I could not find the contact.'
+            speak(response)
+        return response
+
+    # ── SEND MESSAGE / TEXT (via wa.me) ──
     elif any(word in query for word in ('text', 'message', 'whatsapp')):
         words_to_remove = ['make', 'a', 'an', 'send', 'text', 'message',
                            'whatsapp', 'to', 'on', 'call', 'phone']
         contact_name = remove_words(query, words_to_remove).strip()
-
         if contact_name:
             number = contact_lookup(contact_name)
             if number:
