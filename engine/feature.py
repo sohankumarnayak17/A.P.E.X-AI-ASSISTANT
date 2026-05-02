@@ -129,33 +129,29 @@ def findcontact(query: str):
 # ══════════════════════════════
 def whatsapp(mobile_no, message, flag, name):
     if flag == "message":
-        target_tab = 12
-        apex_message = "Message sent successfully."
+        apex_message = "Message sent successfully, Boss."
 
     elif flag == "call":
-        target_tab = 7
         message = ""
         apex_message = "Calling " + name + ", Boss."
 
     else:
-        target_tab = 6
         message = ""
         apex_message = "Starting video call with " + name + ", Boss."
 
+    # Encode message and build WhatsApp URL
     encoded_message = quote(message)
-
     whatsapp_url = f"whatsapp://send?phone={mobile_no}&text={encoded_message}"
-    full_command = f"start {whatsapp_url}"
 
-    subprocess.run(full_command, shell=True)
-    time.sleep(5)
-    subprocess.run(full_command, shell=True)
+    # Open WhatsApp Desktop with the contact
+    subprocess.run(f"start {whatsapp_url}", shell=True)
+    time.sleep(6)  # Wait for WhatsApp to open fully
 
-    autogui.hotkey("ctrl", "f")
-
-    for i in range(1, target_tab):
-        autogui.hotkey("tab")
-
-    autogui.hotkey("enter")
+    if flag == "message":
+        autogui.hotkey("enter")               # message box is auto-focused via URL
+    elif flag == "call":
+        autogui.hotkey("ctrl", "shift", "p")  # WhatsApp Desktop voice call shortcut
+    else:
+        autogui.hotkey("ctrl", "shift", "v")  # WhatsApp Desktop video call shortcut
 
     speak(apex_message)
