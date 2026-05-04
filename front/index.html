@@ -13,6 +13,11 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
     />
+    <!-- ✅ FIX 1: Bootstrap CSS added — required for offcanvas, d-flex, col-md-12 etc. -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    />
   </head>
 
   <body>
@@ -32,7 +37,7 @@
       <!-- Main Container -->
       <div class="main">
 
-        <!-- Triangle Hologram (visible by default, hidden on mic click) -->
+        <!-- Hologram Orb (visible by default, hidden on mic click) -->
         <div class="orb-wrapper" id="orb-wrapper">
           <div class="holo-orb">
             <div class="ring ring-1">
@@ -71,15 +76,47 @@
 
       </div>
 
-      <!-- Chat Input Section -->
+      <!-- ============================================================
+           Chat Input Section
+           ✅ FIX 2: Proper Bootstrap col wrapper retained
+           ============================================================ -->
       <div class="col-md-12">
         <div class="text-center">
-          <div id="textinput" class="d-flex">
-            <input type="text" name="chatbox" id="chatbox" placeholder="type here" />
-            <button id="mic" class="glow-on-hover"><i class="bi bi-mic"></i></button>
-            <button id="chat" class="glow-on-hover"><i class="bi bi-chat"></i></button>
-            <button id="sendbtn" class="glow-on-hover"><i class="bi bi-send"></i></button>  <!-- ✅ moved inside -->
-            <button id="setting" class="glow-on-hover"><i class="bi bi-gear"></i></button>
+          <div id="textinput" class="d-flex align-items-center gap-1">
+
+            <!-- ✅ FIX 3: oninput wired to showhidebutton() so mic/send toggle works
+                 ✅ FIX 4: data-bs-toggle="offcanvas" added
+                 ✅ FIX 5: data-bs-target typo fixed "offcanvasScorolling" → "offcanvasScrolling"
+                 ✅ FIX 6: aria-controls fixed (had a space: "aria -controls") -->
+            <input
+              type="text"
+              name="chatbox"
+              id="chatbox"
+              placeholder="type here"
+              oninput="showhidebutton(this.value)"
+              data-bs-toggle="offcanvas"
+              data-bs-target="#offcanvasScrolling"
+              aria-controls="offcanvasScrolling"
+            />
+
+            <!-- ✅ FIX 7: id was "mic" — changed to "micbtn" to match showhidebutton() JS logic -->
+            <button id="micbtn" class="glow-on-hover">
+              <i class="bi bi-mic"></i>
+            </button>
+
+            <button id="chat" class="glow-on-hover">
+              <i class="bi bi-chat"></i>
+            </button>
+
+            <!-- ✅ FIX 8: sendbtn starts hidden — only appears when user types (showhidebutton) -->
+            <button id="sendbtn" class="glow-on-hover" hidden>
+              <i class="bi bi-send"></i>
+            </button>
+
+            <button id="setting" class="glow-on-hover">
+              <i class="bi bi-gear"></i>
+            </button>
+
           </div>
         </div>
       </div>
@@ -91,12 +128,55 @@
         <span class="hud-label" id="apiStatus">API: CONNECTED</span>
       </div>
 
-    </div>
+      <!-- ============================================================
+           Offcanvas Sidebar
+           ✅ FIX 9:  Placed OUTSIDE .main so it doesn't break layout
+           ✅ FIX 10: id="offcanvasScrolling" matches data-bs-target exactly
+           ✅ FIX 11: Removed stray "show" class (was forcing sidebar open on load)
+           ✅ FIX 12: data-bs-scroll="true" — page stays scrollable while sidebar is open
+           ✅ FIX 13: data-bs-backdrop="false" — HUD and UI remain visible behind sidebar
+           ✅ FIX 14: aria-labelledby matches offcanvas title id correctly
+           ============================================================ -->
+      <div
+        class="offcanvas offcanvas-start text-bg-dark"
+        data-bs-scroll="true"
+        data-bs-backdrop="false"
+        tabindex="-1"
+        id="offcanvasScrolling"
+        aria-labelledby="offcanvasScrollingLabel"
+      >
+        <div class="offcanvas-header">
+          <h5 class="offcanvas-title" id="offcanvasScrollingLabel">
+            <i class="bi bi-clock-history me-2"></i>Chat History
+          </h5>
+          <!-- ✅ FIX 15: data-bs-dismiss="offcanvas" (was "offcanvasDark" — wrong value) -->
+          <button
+            type="button"
+            class="btn-close btn-close-white"
+            data-bs-dismiss="offcanvas"
+            aria-label="Close"
+          ></button>
+        </div>
+        <div class="offcanvas-body">
+          <p class="text-secondary">No history yet. Start talking to A.P.E.X.</p>
+        </div>
+      </div>
+
+    </div><!-- /.container -->
 
     <script src="/eel.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.11.2/jquery-ui.min.js"></script>
+
+    <!-- ✅ FIX 16: jQuery upgraded 2.1.3 → 3.7.1 (security fixes + jQuery UI 1.13 compatibility) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+
+    <!-- ✅ FIX 17: jQuery UI upgraded 1.11.2 → 1.13.2 (compatible with jQuery 3.x) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js"></script>
+
     <script src="https://unpkg.com/siriwave/dist/siriwave.umd.min.js"></script>
+
+    <!-- ✅ FIX 18: Bootstrap JS bundle added — REQUIRED for data-bs-toggle="offcanvas" to work -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
     <script src="main.js"></script>
     <script src="renderer.js"></script>
 
