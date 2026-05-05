@@ -13,59 +13,93 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
     />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    />
   </head>
 
   <body>
     <div class="container">
 
-      <div id="siri-container"></div>
-      <div class="scanlines"></div>
-
-      <!-- Top HUD Bar -->
+      <!-- HUD TOP — first in DOM so it renders at top -->
       <div class="hud-top">
         <span class="hud-label">A.P.E.X // ONLINE</span>
         <span class="hud-time" id="clock"></span>
         <span class="hud-label">SYS: NOMINAL</span>
       </div>
 
-      <!-- Main Container -->
+      <!-- Scanlines overlay -->
+      <div class="scanlines"></div>
+
+      <!-- SiriWave — hidden by default, shown only when mic is active -->
+      <div id="siri-container" hidden></div>
+
+      <!-- ── MAIN ── -->
       <div class="main">
 
-        <!-- Triangle Hologram -->
-        <div class="orb-wrapper">
-          <div class="holo-orb">
+        <!-- Hologram Orb -->
+        <div class="orb-wrapper" id="orb-wrapper">
 
-            <!-- Rings -->
+          <!-- Outer glow ring (CSS only) -->
+          <div class="orb-glow-ring"></div>
+
+          <!-- Hexagon grid background -->
+          <div class="hex-grid"></div>
+
+          <div class="holo-orb">
             <div class="ring ring-1">
               <div class="ring ring-2">
                 <div class="ring ring-3"></div>
               </div>
             </div>
             <div class="ring ring-4"></div>
+            <div class="ring ring-5"></div>
 
-            <!-- Scan line -->
+            <!-- Scan lines (2 for a cooler effect) -->
             <div class="orb-scan"></div>
+            <div class="orb-scan orb-scan--reverse"></div>
 
             <!-- Orbit dots -->
             <div class="orbit-dot dot-1"></div>
             <div class="orbit-dot dot-2"></div>
             <div class="orbit-dot dot-3"></div>
+            <div class="orbit-dot dot-4"></div>
 
             <!-- Core -->
             <div class="orb-core">
               <div class="core-inner"></div>
+              <div class="core-ring"></div>
             </div>
 
+            <!-- Hologram data lines -->
+            <div class="holo-line holo-line-1"></div>
+            <div class="holo-line holo-line-2"></div>
+            <div class="holo-line holo-line-3"></div>
           </div>
+
+          <!-- Corner brackets for HUD feel -->
+          <div class="bracket bracket-tl"></div>
+          <div class="bracket bracket-tr"></div>
+          <div class="bracket bracket-bl"></div>
+          <div class="bracket bracket-br"></div>
+
           <p class="orb-status" id="status">STANDBY</p>
+
+          <!-- Hologram stats below orb -->
+          <div class="orb-stats">
+            <span class="stat">CPU <b id="cpu-val">12%</b></span>
+            <span class="stat">MEM <b id="mem-val">340MB</b></span>
+            <span class="stat">NET <b id="net-val">OK</b></span>
+          </div>
         </div>
 
-        <!-- Chat / Response Display -->
+        <!-- Response Display -->
         <div class="response-box" id="responseBox">
           <p id="responseText">Awaiting your command, Boss.</p>
         </div>
 
-        <!-- Transcript (what you said) -->
+        <!-- Transcript -->
         <div class="transcript-box" id="transcriptBox">
           <span class="label">YOU &rsaquo;</span>
           <span id="transcriptText">...</span>
@@ -77,34 +111,123 @@
           <button class="btn-mute" id="muteBtn">MUTE</button>
         </div>
 
-      </div>
+      </div><!-- /.main -->
 
-      <!-- Chat Input Section -->
-      <div class="col-md-12">
-        <div class="text-center">
-          <div id="textinput" class="d-flex">
-            <input type="text" name="chatbox" id="chatbox" placeholder="type here" />
-            <button id="mic" class="glow-on-hover"><i class="bi bi-mic"></i></button>
-            <button id="chat" class="glow-on-hover"><i class="bi bi-chat"></i></button>
-            <button id="setting" class="glow-on-hover"><i class="bi bi-gear"></i></button>
-          </div>
+      <!-- ── CHAT INPUT ── -->
+      <div class="chat-input-wrapper">
+        <div id="textinput" class="d-flex align-items-center gap-2">
+
+          <input
+            type="text"
+            name="chatbox"
+            id="chatbox"
+            placeholder="type here"
+            oninput="showhidebutton(this.value)"
+          />
+
+          <!-- Mic — visible by default, hidden when typing -->
+          <button id="micbtn" class="glow-on-hover" title="Voice input">
+            <i class="bi bi-mic"></i>
+          </button>
+
+          <!-- Chat history toggle -->
+          <button
+            id="chatHistoryBtn"
+            class="glow-on-hover"
+            title="Chat History"
+            data-bs-toggle="offcanvas"
+            data-bs-target="#offcanvasScrolling"
+            aria-controls="offcanvasScrolling"
+          >
+            <i class="bi bi-chat-square-text"></i>
+          </button>
+
+          <!-- Send — hidden by default, shown when typing -->
+          <button id="sendbtn" class="glow-on-hover" hidden title="Send">
+            <i class="bi bi-send"></i>
+          </button>
+
+          <button id="setting" class="glow-on-hover" title="Settings">
+            <i class="bi bi-gear"></i>
+          </button>
+
         </div>
       </div>
 
-      <!-- Bottom HUD Bar -->
+      <!-- HUD BOTTOM -->
       <div class="hud-bottom">
         <span class="hud-label" id="listenStatus">MIC: OFF</span>
         <span class="hud-label">APEX v1.0</span>
         <span class="hud-label" id="apiStatus">API: CONNECTED</span>
       </div>
 
+    </div><!-- /.container -->
+
+    <!-- ── OFFCANVAS CHAT HISTORY SLIDER ── -->
+    <div
+      class="offcanvas offcanvas-start apex-offcanvas"
+      data-bs-scroll="true"
+      data-bs-backdrop="true"
+      tabindex="-1"
+      id="offcanvasScrolling"
+      aria-labelledby="offcanvasScrollingLabel"
+    >
+      <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="offcanvasScrollingLabel">
+          <i class="bi bi-clock-history me-2"></i>CHAT HISTORY
+        </h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="offcanvas"
+          aria-label="Close"
+        ></button>
+      </div>
+      <div class="offcanvas-body" id="chatHistoryBody">
+        <p class="no-history-msg">No history yet. Start talking to A.P.E.X.</p>
+      </div>
     </div>
 
+    <!-- ── SCRIPTS ── -->
     <script src="/eel.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.11.2/jquery-ui.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js"></script>
     <script src="https://unpkg.com/siriwave/dist/siriwave.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="main.js"></script>
     <script src="renderer.js"></script>
+
+    <script>
+      // ── CLOCK ──
+      function updateClock() {
+        const now = new Date();
+        document.getElementById("clock").textContent =
+          now.toLocaleTimeString("en-US", { hour12: false });
+      }
+      setInterval(updateClock, 1000);
+      updateClock();
+
+      // ── FAKE STAT FLICKER ──
+      setInterval(() => {
+        document.getElementById("cpu-val").textContent = Math.floor(Math.random() * 30 + 5) + "%";
+        document.getElementById("mem-val").textContent = Math.floor(Math.random() * 100 + 300) + "MB";
+      }, 2000);
+
+      // ── ADD TO CHAT HISTORY ──
+      function addToHistory(user, apex) {
+        const body = document.getElementById("chatHistoryBody");
+        const noMsg = body.querySelector(".no-history-msg");
+        if (noMsg) noMsg.remove();
+
+        const entry = document.createElement("div");
+        entry.className = "history-entry";
+        entry.innerHTML = `
+          <div class="history-user"><span>YOU</span> ${user}</div>
+          <div class="history-apex"><span>APEX</span> ${apex}</div>
+        `;
+        body.prepend(entry);
+      }
+    </script>
 
   </body>
 </html>

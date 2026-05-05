@@ -109,17 +109,16 @@ $(document).ready(function () {
 
 
 // ── SHOW/HIDE MIC vs SEND BUTTON ──
-function showhidebutton(message) {                        // ✅ FIX 1: added missing closing ) for if block
-  if (message.length === 0) {                             // ✅ FIX 2: use === for strict equality
-    $("#micbtn").removeAttr("hidden");                    // ✅ FIX 3: removeAttr("hidden") to show, not attr("hidden", false)
-    $("#sendbtn").attr("hidden", true);                   // ✅ FIX 4: hide sendbtn with true, not false
+function showhidebutton(message) {                        
+  if (message.length === 0) {                             
+    $("#micbtn").removeAttr("hidden");                    
+    $("#sendbtn").attr("hidden", true);             
   } else {
-    $("#micbtn").attr("hidden", true);                    // ✅ FIX 5: hide micbtn properly
-    $("#sendbtn").removeAttr("hidden");                   // ✅ FIX 6: was missing # selector → $("sendbtn") → $("#sendbtn"), and use removeAttr to show
+    $("#micbtn").attr("hidden", true);                    
+    $("#sendbtn").removeAttr("hidden");                 
   }
 
-  $("#sendbtn").click(function () {                       // ✅ FIX 7: added # to sendbtn selector
-    let message = $("#chatbox").val();                    // ✅ FIX 8: was #chatbtn (wrong id) → #chatbox
-    playassistant(message);
-  });                                                     // ✅ FIX 9: was missing closing }) for the click handler AND the function body
+  $("#sendbtn").click(function () {                      
+    let message = $("#chatbox").val();                    
+  });                                                     
 }

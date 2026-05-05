@@ -13,7 +13,6 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
     />
-    <!-- ✅ FIX 1: Bootstrap CSS added — required for offcanvas, d-flex, col-md-12 etc. -->
     <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
@@ -23,21 +22,23 @@
   <body>
     <div class="container">
 
-      <!-- SiriWave (hidden by default, shown on mic click) -->
-      <div id="siri-container" hidden></div>
-      <div class="scanlines"></div>
-
-      <!-- Top HUD Bar -->
+      <!-- ✅ FIX 1: HUD TOP is FIRST in DOM so it renders at the top -->
       <div class="hud-top">
         <span class="hud-label">A.P.E.X // ONLINE</span>
         <span class="hud-time" id="clock"></span>
         <span class="hud-label">SYS: NOMINAL</span>
       </div>
 
-      <!-- Main Container -->
+      <!-- scanlines overlay -->
+      <div class="scanlines"></div>
+
+      <!-- ✅ FIX 2: SiriWave MUST have hidden attribute — only shown when mic is active -->
+      <div id="siri-container" hidden></div>
+
+      <!-- Main Content -->
       <div class="main">
 
-        <!-- Hologram Orb (visible by default, hidden on mic click) -->
+        <!-- ✅ FIX 3: Orb wrapper is visible by default (no hidden attribute) -->
         <div class="orb-wrapper" id="orb-wrapper">
           <div class="holo-orb">
             <div class="ring ring-1">
@@ -57,7 +58,7 @@
           <p class="orb-status" id="status">STANDBY</p>
         </div>
 
-        <!-- Chat / Response Display -->
+        <!-- Response Display -->
         <div class="response-box" id="responseBox">
           <p id="responseText">Awaiting your command, Boss.</p>
         </div>
@@ -74,20 +75,14 @@
           <button class="btn-mute" id="muteBtn">MUTE</button>
         </div>
 
-      </div>
+      </div><!-- /.main -->
 
-      <!-- ============================================================
-           Chat Input Section
-           ✅ FIX 2: Proper Bootstrap col wrapper retained
-           ============================================================ -->
+      <!-- ✅ FIX 4: Chat input row — all buttons present and correctly ordered -->
       <div class="col-md-12">
         <div class="text-center">
           <div id="textinput" class="d-flex align-items-center gap-1">
 
-            <!-- ✅ FIX 3: oninput wired to showhidebutton() so mic/send toggle works
-                 ✅ FIX 4: data-bs-toggle="offcanvas" added
-                 ✅ FIX 5: data-bs-target typo fixed "offcanvasScorolling" → "offcanvasScrolling"
-                 ✅ FIX 6: aria-controls fixed (had a space: "aria -controls") -->
+            <!-- ✅ FIX 5: oninput wired, offcanvas attrs correct, no typos -->
             <input
               type="text"
               name="chatbox"
@@ -99,7 +94,7 @@
               aria-controls="offcanvasScrolling"
             />
 
-            <!-- ✅ FIX 7: id was "mic" — changed to "micbtn" to match showhidebutton() JS logic -->
+            <!-- ✅ FIX 6: id="micbtn" matches showhidebutton() JS — visible by default -->
             <button id="micbtn" class="glow-on-hover">
               <i class="bi bi-mic"></i>
             </button>
@@ -108,7 +103,7 @@
               <i class="bi bi-chat"></i>
             </button>
 
-            <!-- ✅ FIX 8: sendbtn starts hidden — only appears when user types (showhidebutton) -->
+            <!-- ✅ FIX 7: sendbtn hidden by default, shown when user types -->
             <button id="sendbtn" class="glow-on-hover" hidden>
               <i class="bi bi-send"></i>
             </button>
@@ -121,22 +116,17 @@
         </div>
       </div>
 
-      <!-- Bottom HUD Bar -->
+      <!-- ✅ FIX 8: HUD BOTTOM last in DOM so it renders at the bottom -->
       <div class="hud-bottom">
         <span class="hud-label" id="listenStatus">MIC: OFF</span>
         <span class="hud-label">APEX v1.0</span>
         <span class="hud-label" id="apiStatus">API: CONNECTED</span>
       </div>
 
-      <!-- ============================================================
-           Offcanvas Sidebar
-           ✅ FIX 9:  Placed OUTSIDE .main so it doesn't break layout
-           ✅ FIX 10: id="offcanvasScrolling" matches data-bs-target exactly
-           ✅ FIX 11: Removed stray "show" class (was forcing sidebar open on load)
-           ✅ FIX 12: data-bs-scroll="true" — page stays scrollable while sidebar is open
-           ✅ FIX 13: data-bs-backdrop="false" — HUD and UI remain visible behind sidebar
-           ✅ FIX 14: aria-labelledby matches offcanvas title id correctly
-           ============================================================ -->
+      <!-- ✅ FIX 9: Offcanvas outside .main, id matches data-bs-target exactly -->
+      <!-- ✅ FIX 10: No "show" class — was auto-opening sidebar on page load -->
+      <!-- ✅ FIX 11: data-bs-scroll="true" keeps background scrollable -->
+      <!-- ✅ FIX 12: data-bs-backdrop="false" so HUD stays visible -->
       <div
         class="offcanvas offcanvas-start text-bg-dark"
         data-bs-scroll="true"
@@ -149,7 +139,7 @@
           <h5 class="offcanvas-title" id="offcanvasScrollingLabel">
             <i class="bi bi-clock-history me-2"></i>Chat History
           </h5>
-          <!-- ✅ FIX 15: data-bs-dismiss="offcanvas" (was "offcanvasDark" — wrong value) -->
+          <!-- ✅ FIX 13: data-bs-dismiss="offcanvas" correct value -->
           <button
             type="button"
             class="btn-close btn-close-white"
@@ -165,18 +155,13 @@
     </div><!-- /.container -->
 
     <script src="/eel.js"></script>
-
-    <!-- ✅ FIX 16: jQuery upgraded 2.1.3 → 3.7.1 (security fixes + jQuery UI 1.13 compatibility) -->
+    <!-- ✅ FIX 14: jQuery upgraded to 3.7.1 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-
-    <!-- ✅ FIX 17: jQuery UI upgraded 1.11.2 → 1.13.2 (compatible with jQuery 3.x) -->
+    <!-- ✅ FIX 15: jQuery UI upgraded to 1.13.2 (compatible with jQuery 3.x) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js"></script>
-
     <script src="https://unpkg.com/siriwave/dist/siriwave.umd.min.js"></script>
-
-    <!-- ✅ FIX 18: Bootstrap JS bundle added — REQUIRED for data-bs-toggle="offcanvas" to work -->
+    <!-- ✅ FIX 16: Bootstrap JS bundle — required for offcanvas to open/close -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
     <script src="main.js"></script>
     <script src="renderer.js"></script>
 
