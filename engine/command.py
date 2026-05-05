@@ -8,9 +8,44 @@ import os
 import subprocess
 import sqlite3
 from engine.helper import remove_words
-from engine.feature import findcontact, whatsapp             # ✅ correct import
+from engine.feature import findcontact, whatsapp
 
 DB_PATH = "APEX.db"
+
+
+# ══════════════════════════════
+#   CHAT HISTORY DB SETUP
+# ══════════════════════════════
+def init_chat_history_db():
+    """Create chat_history table if it doesn't exist."""
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS chat_history (
+                    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                    sender    TEXT NOT NULL CHECK(sender IN ('user', 'apex')),
+                    message   TEXT NOT NULL,
+                    timestamp TEXT NOT NULL
+                )
+            """)
+            conn.commit()
+    except Exception as e:
+        print('[APEX] chat_history init error: ' + str(e))
+
+
+def save_message(sender: str, message: str):
+    """Save a single message to chat_history."""
+    try:
+        ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute(
+                "INSERT INTO chat_history (sender, message, timestamp) VALUES (?, ?, ?)",
+                (sender, message, ts)
+            )
+            conn.commit()
+    except Exception as e:
+        print('[APEX] save_message error: ' + str(e))
+
 
 # ══════════════════════════════
 #   SPEECH
@@ -113,6 +148,48 @@ def openApp(name: str) -> bool:
 
 
 # ══════════════════════════════
+#   CHAT HISTORY — EEL EXPOSED
+# ══════════════════════════════
+@eel.expose
+def getChatHistory(limit: int = 50):
+    """
+    Return last `limit` messages as a list of dicts.
+    Called by JS on sidebar open to populate history.
+    """
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            c = conn.cursor()
+            c.execute("""
+                SELECT sender, message, timestamp
+                FROM chat_history
+                ORDER BY id DESC
+                LIMIT ?
+            """, (limit,))
+            rows = c.fetchall()
+            rows = list(reversed(rows))
+            return [
+                {"sender": r[0], "message": r[1], "timestamp": r[2]}
+                for r in rows
+            ]
+    except Exception as e:
+        print('[APEX] getChatHistory error: ' + str(e))
+        return []
+
+
+@eel.expose
+def clearChatHistory():
+    """Wipe all chat history from DB and clear the UI."""
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("DELETE FROM chat_history")
+            conn.commit()
+        return True
+    except Exception as e:
+        print('[APEX] clearChatHistory error: ' + str(e))
+        return False
+
+
+# ══════════════════════════════
 #   VOICE INPUT
 # ══════════════════════════════
 @eel.expose
@@ -149,40 +226,41 @@ def processQuery(query: str) -> str:
     query = query.lower().strip()
     print('Processing: ' + query)
 
+    # Save user message to history
+    save_message('user', query)
+
     # ── OPEN ──
     if query.startswith('open '):
         target = query[5:].strip()
         if target:
-            speak('Opening ' + target + ', Boss.')
+            response = 'Opening ' + target + ', Boss.'
+            speak(response)
             openApp(target)
-            return 'Opening ' + target + ', Boss.'
         else:
             response = 'What would you like me to open, Boss?'
             speak(response)
-            return response
 
     # ── WHATSAPP MESSAGE / CALL / VIDEO CALL ──
-    elif any(word in query for word in ('send message', 'phone call', 'video call')):  # ✅ inside processQuery
-        contact_no, name = findcontact(query)                  # ✅ unpack tuple from findcontact
+    elif any(word in query for word in ('send message', 'phone call', 'video call')):
+        contact_no, name = findcontact(query)
         if contact_no != 0:
             if 'send message' in query:
                 flag = 'message'
                 speak('What message would you like to send, Boss?')
-                message = takecommand()                        # ✅ listen for the message
-            elif 'phone call' in query:                        # ✅ phone call not phonecall
+                message = takecommand()
+            elif 'phone call' in query:
                 flag = 'call'
                 message = ''
             else:
                 flag = 'videocall'
                 message = ''
             whatsapp(contact_no, message, flag, name)
-            response = f'Done, Boss.'
+            response = 'Done, Boss.'
         else:
-            response = f'Sorry Boss, I could not find the contact.'
+            response = 'Sorry Boss, I could not find the contact.'
             speak(response)
-        return response
 
-    # ── SEND MESSAGE / TEXT (via wa.me) ──
+    # ── TEXT / MESSAGE / WHATSAPP ──
     elif any(word in query for word in ('text', 'message', 'whatsapp')):
         words_to_remove = ['make', 'a', 'an', 'send', 'text', 'message',
                            'whatsapp', 'to', 'on', 'call', 'phone']
@@ -199,31 +277,35 @@ def processQuery(query: str) -> str:
         else:
             response = 'Who would you like to message, Boss?'
             speak(response)
-        return response
 
     # ── TIME ──
     elif 'time' in query:
         now = datetime.datetime.now().strftime("%H:%M:%S")
         response = 'The time is ' + now + ', Boss.'
+        speak(response)
 
     # ── DATE ──
     elif 'date' in query or 'today' in query:
         today = datetime.datetime.now().strftime("%A, %d %B %Y")
         response = 'Today is ' + today + ', Boss.'
+        speak(response)
 
     # ── IDENTITY ──
     elif 'your name' in query or 'who are you' in query:
         response = 'I am APEX, your personal AI assistant, Boss.'
+        speak(response)
 
     # ── GREET ──
     elif any(greet in query for greet in ('hello', 'hi', 'hey')):
         response = 'Hello Boss. How can I assist you today?'
+        speak(response)
 
     # ── SEARCH ──
     elif 'search' in query or 'look up' in query:
         search_query = query.replace('search', '').replace('look up', '').strip()
         webbrowser.open('https://www.google.com/search?q=' + search_query)
         response = 'Searching for ' + search_query + ', Boss.'
+        speak(response)
 
     # ── YOUTUBE ──
     elif 'youtube' in query:
@@ -238,6 +320,7 @@ def processQuery(query: str) -> str:
         else:
             webbrowser.open('https://www.youtube.com')
             response = 'Opening YouTube, Boss.'
+        speak(response)
 
     # ── EXIT ──
     elif any(word in query for word in ('shutdown', 'exit', 'quit', 'bye')):
@@ -248,8 +331,16 @@ def processQuery(query: str) -> str:
     # ── FALLBACK ──
     else:
         response = 'I did not understand that, Boss. Please try again.'
+        speak(response)
 
-    speak(response)
+    # Save APEX response to history
+    save_message('apex', response)
+
+    # Push new messages live to sidebar via eel
+    now_time = datetime.datetime.now().strftime("%H:%M")
+    eel.appendHistoryItem('user', query, now_time)()
+    eel.appendHistoryItem('apex', response, now_time)()
+
     return response
 
 
@@ -263,3 +354,9 @@ def allcommand() -> str:
     if query and query.strip():
         return processQuery(query)
     return ''
+
+
+# ══════════════════════════════
+#   INIT ON IMPORT
+# ══════════════════════════════
+init_chat_history_db()

@@ -33,7 +33,6 @@ function sendertext(message) {
                 </div>
             </div>
         `;
-        // Scroll to bottom of chatbox
         chatbox.scrollTop = chatbox.scrollHeight;
     }
 }
@@ -50,7 +49,6 @@ function recievertext(message) {
                 </div>
             </div>
         `;
-        // Scroll to bottom of chatbox
         chatbox.scrollTop = chatbox.scrollHeight;
     }
 }
@@ -75,33 +73,22 @@ function hideMic() {
     $("#stop-btn").removeAttr("hidden");
 }
 
-// Show loading / thinking indicator
+// Show loading indicator
 eel.expose(showLoader);
 function showLoader() {
     $("#loader").removeAttr("hidden");
 }
 
-// Hide loading / thinking indicator
+// Hide loading indicator
 eel.expose(hideLoader);
 function hideLoader() {
     $("#loader").attr("hidden", true);
 }
 
-// Clear all chat messages
+// Clear all chat messages from chatbox
 eel.expose(clearChat);
 function clearChat() {
     document.getElementById("chat-canvas-body").innerHTML = "";
-}
-
-// Toggle chat canvas visibility
-eel.expose(toggleChat);
-function toggleChat() {
-    var chatCanvas = $("#chat-canvas");
-    if (chatCanvas.hasClass("open")) {
-        chatCanvas.removeClass("open");
-    } else {
-        chatCanvas.addClass("open");
-    }
 }
 
 // Update assistant status text
@@ -120,4 +107,69 @@ function playOrbAnimation() {
 eel.expose(stopOrbAnimation);
 function stopOrbAnimation() {
     $("#orb").removeClass("active");
+}
+
+
+// ══════════════════════════════
+//   CHAT HISTORY SIDEBAR
+// ══════════════════════════════
+
+// Called live by Python each time a new message is processed
+eel.expose(appendHistoryItem);
+function appendHistoryItem(sender, message, time) {
+    var historyList = document.getElementById("history-list");
+    if (!historyList) return;
+
+    var isApex = sender === "apex";
+    var item = document.createElement("div");
+    item.className = "history-item " + (isApex ? "history-apex" : "history-user");
+    item.innerHTML = `
+        <div class="history-sender">${isApex ? "⚡ APEX" : "🧑 You"}</div>
+        <div class="history-text">${message}</div>
+        <div class="history-time">${time}</div>
+    `;
+    historyList.appendChild(item);
+    historyList.scrollTop = historyList.scrollHeight;
+}
+
+// Load full history from DB when sidebar opens
+async function loadChatHistory() {
+    var historyList = document.getElementById("history-list");
+    if (!historyList) return;
+
+    historyList.innerHTML = '<div class="history-loading">Loading history...</div>';
+
+    var history = await eel.getChatHistory(50)();
+    historyList.innerHTML = "";
+
+    if (history.length === 0) {
+        historyList.innerHTML = '<div class="history-empty">No chat history yet, Boss.</div>';
+        return;
+    }
+
+    history.forEach(function (item) {
+        var time = item.timestamp.split(" ")[1].substring(0, 5); // HH:MM
+        appendHistoryItem(item.sender, item.message, time);
+    });
+}
+
+// Clear history button handler
+async function clearHistory() {
+    var ok = await eel.clearChatHistory()();
+    if (ok) {
+        document.getElementById("history-list").innerHTML =
+            '<div class="history-empty">History cleared, Boss.</div>';
+    }
+}
+
+// Toggle sidebar open / close
+function toggleHistorySidebar() {
+    var sidebar = document.getElementById("history-sidebar");
+    var isOpen = sidebar.classList.contains("open");
+    if (isOpen) {
+        sidebar.classList.remove("open");
+    } else {
+        sidebar.classList.add("open");
+        loadChatHistory();
+    }
 }
