@@ -3,7 +3,7 @@
    Replace your existing style.css with this file
 ══════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Exo+2:ital,wght@0,300;0,400;0,600;1,300&display=swap');
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -26,6 +26,7 @@
   --text-dim:    #5a1111;
   --font-hud:    'Orbitron', sans-serif;
   --font-mono:   'Share Tech Mono', monospace;
+  --font-future: 'Exo 2', sans-serif;
 }
 
 /* ══════════════════════════════════════════════════
@@ -162,14 +163,14 @@ body {
   align-items: center;
   gap: 14px;
   position: relative;
-  padding: 30px;
+  padding: 18px;
 }
 
 /* Outer breathing atmosphere */
 .orb-glow-ring {
   position: absolute;
-  width: 310px;
-  height: 310px;
+  width: 220px;
+  height: 220px;
   border-radius: 50%;
   border: 1px solid rgba(130, 0, 0, 0.25);
   box-shadow:
@@ -189,8 +190,8 @@ body {
 /* Hex grid */
 .hex-grid {
   position: absolute;
-  width: 240px;
-  height: 240px;
+  width: 170px;
+  height: 170px;
   border-radius: 50%;
   opacity: 0.08;
   background-image:
@@ -209,8 +210,8 @@ body {
 /* Holo orb */
 .holo-orb {
   position: relative;
-  width: 200px;
-  height: 200px;
+  width: 140px;
+  height: 140px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -224,11 +225,11 @@ body {
   animation: spin 8s linear infinite;
 }
 
-.ring-1 { width:200px; height:200px; border-color:rgba(170,0,0,0.70); box-shadow:0 0 10px rgba(170,0,0,0.30); animation-duration:10s; }
-.ring-2 { width:158px; height:158px; border-color:rgba(110,0,0,0.50); animation-duration:6s;  animation-direction:reverse; }
-.ring-3 { width:118px; height:118px; border-color:rgba(180,0,0,0.55); animation-duration:4s; }
-.ring-4 { width:180px; height:180px; border-style:dashed; border-color:rgba(90,0,0,0.28); animation-duration:16s; animation-direction:reverse; }
-.ring-5 { width:138px; height:138px; border-style:dotted; border-color:rgba(110,0,0,0.22); animation-duration:11s; }
+.ring-1 { width:140px; height:140px; border-color:rgba(170,0,0,0.70); box-shadow:0 0 10px rgba(170,0,0,0.30); animation-duration:10s; }
+.ring-2 { width:110px; height:110px; border-color:rgba(110,0,0,0.50); animation-duration:6s;  animation-direction:reverse; }
+.ring-3 { width:82px;  height:82px;  border-color:rgba(180,0,0,0.55); animation-duration:4s; }
+.ring-4 { width:126px; height:126px; border-style:dashed; border-color:rgba(90,0,0,0.28); animation-duration:16s; animation-direction:reverse; }
+.ring-5 { width:96px;  height:96px;  border-style:dotted; border-color:rgba(110,0,0,0.22); animation-duration:11s; }
 
 @keyframes spin {
   from { transform: rotate(0deg); }
@@ -282,16 +283,16 @@ body {
 .dot-3 { animation: o3 5.5s linear infinite; }
 .dot-4 { width:4px; height:4px; opacity:0.5; animation: o4 9.0s linear infinite; }
 
-@keyframes o1 { from{transform:rotate(0deg)   translateX(100px);} to{transform:rotate(360deg)  translateX(100px);} }
-@keyframes o2 { from{transform:rotate(120deg) translateX(78px);}  to{transform:rotate(480deg)  translateX(78px);}  }
-@keyframes o3 { from{transform:rotate(240deg) translateX(90px);}  to{transform:rotate(600deg)  translateX(90px);}  }
-@keyframes o4 { from{transform:rotate(60deg)  translateX(68px);}  to{transform:rotate(420deg)  translateX(68px);}  }
+@keyframes o1 { from{transform:rotate(0deg)   translateX(70px);} to{transform:rotate(360deg)  translateX(70px);} }
+@keyframes o2 { from{transform:rotate(120deg) translateX(55px);}  to{transform:rotate(480deg)  translateX(55px);}  }
+@keyframes o3 { from{transform:rotate(240deg) translateX(63px);}  to{transform:rotate(600deg)  translateX(63px);}  }
+@keyframes o4 { from{transform:rotate(60deg)  translateX(48px);}  to{transform:rotate(420deg)  translateX(48px);}  }
 
 /* ══════════════════════════════════════════════════
    CRAZY HOLOGRAM CORE
 ══════════════════════════════════════════════════ */
 .orb-core {
-  width: 58px; height: 58px;
+  width: 40px; height: 40px;
   border-radius: 50%;
   background: radial-gradient(circle at 32% 32%,
     #ff3333 0%,
@@ -319,7 +320,7 @@ body {
 }
 
 .core-inner {
-  width: 22px; height: 22px;
+  width: 14px; height: 14px;
   border-radius: 50%;
   background: radial-gradient(circle, #ffffff 0%, #ffbbbb 45%, transparent 100%);
   opacity: 0.95;
@@ -334,7 +335,7 @@ body {
 
 .core-ring {
   position: absolute;
-  width: 76px; height: 76px;
+  width: 52px; height: 52px;
   border-radius: 50%;
   border: 1.5px solid rgba(200,0,0,0.55);
   animation: ring-expand 1.8s ease-out infinite;
@@ -366,9 +367,9 @@ body {
   animation: holo-flicker 3.5s ease-in-out infinite;
 }
 
-.holo-line-1 { width:90px; top:26%; animation-delay:0.0s; }
-.holo-line-2 { width:55px; top:50%; animation-delay:1.2s; }
-.holo-line-3 { width:72px; top:74%; animation-delay:2.4s; }
+.holo-line-1 { width:62px; top:26%; animation-delay:0.0s; }
+.holo-line-2 { width:38px; top:50%; animation-delay:1.2s; }
+.holo-line-3 { width:50px; top:74%; animation-delay:2.4s; }
 
 @keyframes holo-flicker {
   0%,100% { opacity:0; transform:translateX(-50%) scaleX(0.15); }
@@ -439,8 +440,11 @@ body {
   border-left: 3px solid var(--wine-bright);
   padding: 18px 22px;
   min-height: 90px;
-  font-size: 1rem;
-  line-height: 1.7;
+  font-family: var(--font-future);
+  font-size: 1.05rem;
+  font-weight: 300;
+  letter-spacing: 0.06em;
+  line-height: 1.8;
   color: var(--text) !important;
   position: relative;
   box-shadow: 0 0 24px rgba(100,0,0,0.15), inset 0 0 50px rgba(0,0,0,0.7);
@@ -471,7 +475,11 @@ body {
   max-width: 720px;
   padding: 10px 16px;
   border-left: 2px solid var(--red-dim);
-  font-size: 0.85rem;
+  font-family: var(--font-future);
+  font-size: 0.95rem;
+  font-weight: 300;
+  font-style: italic;
+  letter-spacing: 0.05em;
   color: var(--text-dim);
   display: flex;
   gap: 10px;
