@@ -1,4 +1,4 @@
-import hugchat
+from openai import OpenAI
 from playsound import playsound
 import eel
 import os
@@ -159,13 +159,26 @@ def whatsapp(mobile_no, message, flag, name):
 
 
 #chatbot feature 
-# ✅ chatbot feature
+# ✅ chatbot feature with OpenAI
 def chatbot(query):
     user_input = query.lower()
-    bot = hugchat.Chatbot(cookie_path="engine/cookies.json")  # ✅ renamed var: chatbot → bot (was shadowing function)
-    id = bot.new_conversation()                                # ✅ fixed typo: new_Conversion → new_conversation
-    bot.change_conversation(id)
-    response = bot.chat(user_input)
-    print(response)
-    speak(response)
-    return response
+    
+    # Initialize OpenAI client
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    
+    # Create chat completion
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant named APEX."},
+            {"role": "user", "content": user_input}
+        ],
+        temperature=0.7,
+        max_tokens=150
+    )
+    
+    # Extract response text
+    result = response.choices[0].message.content
+    print(result)
+    speak(result)
+    return result
