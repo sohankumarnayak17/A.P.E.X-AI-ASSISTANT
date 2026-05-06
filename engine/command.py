@@ -8,7 +8,7 @@ import os
 import subprocess
 import sqlite3
 from engine.helper import remove_words
-from engine.feature import findcontact, whatsapp
+from engine.feature import findcontact, whatsapp, chatbot      # ✅ chatbot imported here
 
 DB_PATH = "APEX.db"
 
@@ -328,9 +328,11 @@ def processQuery(query: str) -> str:
         speak(response)
         os._exit(0)
 
-    # ── FALLBACK ──
+    # ── FALLBACK → CHATBOT ──                                  # ✅ Fixed: now inside function, properly indented
     else:
-        response = 'I did not understand that, Boss. Please try again.'
+        response = chatbot(query)                               # ✅ Fixed: capture chatbot return value
+        if not response:                                        # ✅ Guard if chatbot returns None/empty
+            response = 'I did not understand that, Boss. Please try again.'
         speak(response)
 
     # Save APEX response to history

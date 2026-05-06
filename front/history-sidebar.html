@@ -1,0 +1,20 @@
+<!-- ════════════════════════════════════════
+     APEX — Chat History Sidebar
+     Paste this block inside your <body> tag,
+     and link history-sidebar.css in your <head>
+     ════════════════════════════════════════ -->
+
+<!-- Sidebar Toggle Button -->
+<button onclick="toggleHistorySidebar()" id="history-toggle-btn" title="Chat History">
+    🕘
+</button>
+
+<!-- History Sidebar -->
+<div id="history-sidebar">
+    <div class="history-header">
+        <span>Chat History</span>
+        <button onclick="clearHistory()" class="history-clear-btn">🗑 Clear</button>
+        <button onclick="toggleHistorySidebar()" class="history-close-btn">✕</button>
+    </div>
+    <div id="history-list"></div>
+</div>
