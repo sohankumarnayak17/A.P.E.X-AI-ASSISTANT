@@ -1,3 +1,4 @@
+import hugchat
 from playsound import playsound
 import eel
 import os
@@ -155,3 +156,16 @@ def whatsapp(mobile_no, message, flag, name):
         autogui.hotkey("ctrl", "shift", "v")  # WhatsApp Desktop video call shortcut
 
     speak(apex_message)
+
+
+#chatbot feature 
+# ✅ chatbot feature
+def chatbot(query):
+    user_input = query.lower()
+    bot = hugchat.Chatbot(cookie_path="engine/cookies.json")  # ✅ renamed var: chatbot → bot (was shadowing function)
+    id = bot.new_conversation()                                # ✅ fixed typo: new_Conversion → new_conversation
+    bot.change_conversation(id)
+    response = bot.chat(user_input)
+    print(response)
+    speak(response)
+    return response
