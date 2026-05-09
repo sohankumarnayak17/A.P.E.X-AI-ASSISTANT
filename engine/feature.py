@@ -17,7 +17,7 @@ from engine.helper import extract_yt_term
 DB_PATH = "APEX.db"
 
 # ✅ Gemini setup — paste your key from aistudio.google.com/app/apikey
-genai.configure(api_key="PASTE_YOUR_GEMINI_KEY_HERE")
+genai.configure(api_key="AIzaSyBThx3WwMGypvKKwycyg3Vrk6ykeVbm1ks")
 _gemini = genai.GenerativeModel(
     model_name="gemini-1.5-flash",
     system_instruction=(
