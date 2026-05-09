@@ -21,7 +21,7 @@ DB_PATH = "APEX.db"
 # ══════════════════════════════
 #   GEMINI SETUP
 # ══════════════════════════════
-_client = genai.Client(api_key="AIzaSyBThx3WwMGypvKKwycyg3Vrk6ykeVbm1ks")  # ← paste key here
+_client = genai.Client(api_key="AIzaSyBFsYnCoXXi67uwNHHeZtiDNlNSAu9x89s")  # ← paste key here
 
 _system_prompt = (
     "You are APEX, an advanced AI personal assistant. "
@@ -180,7 +180,7 @@ def whatsapp(mobile_no, message, flag, name):
 def chatbot(query):
     try:
         response = _client.models.generate_content(
-            model="gemini-2.0-flash",
+           model="gemini-1.5-flash-8b",
             contents=query.strip(),
             config=types.GenerateContentConfig(
                 system_instruction=_system_prompt,
