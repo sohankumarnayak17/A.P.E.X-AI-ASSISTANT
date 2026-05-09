@@ -21,7 +21,7 @@ DB_PATH = "APEX.db"
 # ══════════════════════════════
 #   GEMINI SETUP
 # ══════════════════════════════
-_client = genai.Client(api_key="AIzaSyBFsYnCoXXi67uwNHHeZtiDNlNSAu9x89s")  # ← paste key here
+_client = genai.Client(api_key="AIzaSyA94euMor0YqahQYVuBbGqS5CfYLQ44AHs")  # ← paste key here
 
 _system_prompt = (
     "You are APEX, an advanced AI personal assistant. "
