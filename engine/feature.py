@@ -180,7 +180,7 @@ def whatsapp(mobile_no, message, flag, name):
 def chatbot(query):
     try:
         response = _client.models.generate_content(
-           model="gemini-1.5-flash-8b",
+           model="models/gemini-2.0-flash-lite",
             contents=query.strip(),
             config=types.GenerateContentConfig(
                 system_instruction=_system_prompt,
