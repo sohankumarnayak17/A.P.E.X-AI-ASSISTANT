@@ -1,6 +1,5 @@
 import re
-from google import genai                  # ✅ new package: pip install google-genai
-from google.genai import types
+from groq import Groq                     # ✅ pip install groq
 from playsound import playsound
 import eel
 import os
@@ -19,9 +18,10 @@ from engine.helper import extract_yt_term
 DB_PATH = "APEX.db"
 
 # ══════════════════════════════
-#   GEMINI SETUP
+#   GROQ SETUP
+#   Get free key at console.groq.com → API Keys → Create
 # ══════════════════════════════
-_client = genai.Client(api_key="AIzaSyA94euMor0YqahQYVuBbGqS5CfYLQ44AHs")  # ← paste key here
+_groq = Groq(api_key="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")
 
 _system_prompt = (
     "You are APEX, an advanced AI personal assistant. "
@@ -175,26 +175,26 @@ def whatsapp(mobile_no, message, flag, name):
 
 
 # ══════════════════════════════
-#   CHATBOT — Gemini 2.0 Flash
+#   CHATBOT — Groq LLaMA3
 # ══════════════════════════════
 def chatbot(query):
     try:
-        response = _client.models.generate_content(
-           model="models/gemini-2.0-flash-lite",
-            contents=query.strip(),
-            config=types.GenerateContentConfig(
-                system_instruction=_system_prompt,
-                max_output_tokens=300,
-                temperature=0.7,
-            )
+        response = _groq.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[
+                {"role": "system", "content": _system_prompt},
+                {"role": "user",   "content": query.strip()}
+            ],
+            max_tokens=300,
+            temperature=0.7,
         )
-        reply = response.text.strip()
+        reply = response.choices[0].message.content.strip()
 
-        # strip any leftover markdown just in case
+        # strip any leftover markdown
         reply = re.sub(r'\*+', '', reply)
         reply = re.sub(r'#+\s?', '', reply)
-        reply = re.sub(r'`+', '', reply)
-        reply = re.sub(r'\n+', ' ', reply)
+        reply = re.sub(r'`+',   '', reply)
+        reply = re.sub(r'\n+',  ' ', reply)
         reply = reply.strip()
 
         print("[APEX] " + reply)
