@@ -180,7 +180,7 @@ def whatsapp(mobile_no, message, flag, name):
 def chatbot(query):
     try:
         response = _groq.chat.completions.create(
-            model="llama3-8b-8192",
+            model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": _system_prompt},
                 {"role": "user",   "content": query.strip()}
