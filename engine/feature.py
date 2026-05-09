@@ -1,4 +1,4 @@
-from openai import OpenAI
+import google.generativeai as genai      # ✅ Gemini replaces OpenAI
 from playsound import playsound
 import eel
 import os
@@ -16,6 +16,18 @@ from engine.helper import extract_yt_term
 
 DB_PATH = "APEX.db"
 
+# ✅ Gemini setup — paste your key from aistudio.google.com/app/apikey
+genai.configure(api_key="PASTE_YOUR_GEMINI_KEY_HERE")
+_gemini = genai.GenerativeModel(
+    model_name="gemini-1.5-flash",
+    system_instruction=(
+        "You are APEX, an advanced AI personal assistant. "
+        "Be sharp, concise and futuristic. "
+        "Keep responses under 3 sentences unless asked for detail. "
+        "Always address the user as Boss."
+    )
+)
+
 
 @eel.expose
 def playAssistantSound():
@@ -25,12 +37,16 @@ def playAssistantSound():
 
 def speak(text):
     import pyttsx3
-    engine = pyttsx3.init('sapi5')
-    voices = engine.getProperty('voices')
-    engine.setProperty('voice', voices[0].id)
-    engine.setProperty('rate', 174)
-    engine.say(text)
-    engine.runAndWait()
+    try:
+        text = str(text)
+        engine = pyttsx3.init('sapi5')
+        voices = engine.getProperty('voices')
+        engine.setProperty('voice', voices[0].id)
+        engine.setProperty('rate', 174)
+        engine.say(text)
+        engine.runAndWait()
+    except Exception as e:
+        print('[APEX] speak error: ' + str(e))
 
 
 def opencommand(query):
@@ -108,10 +124,6 @@ def hotkey():
 #   FIND CONTACT
 # ══════════════════════════════
 def findcontact(query: str):
-    """
-    Search contacts table for a name mentioned in the query.
-    Returns (mobile_number, name) or (0, '')
-    """
     try:
         with sqlite3.connect(DB_PATH) as conn:
             c = conn.cursor()
@@ -131,54 +143,41 @@ def findcontact(query: str):
 def whatsapp(mobile_no, message, flag, name):
     if flag == "message":
         apex_message = "Message sent successfully, Boss."
-
     elif flag == "call":
         message = ""
         apex_message = "Calling " + name + ", Boss."
-
     else:
         message = ""
         apex_message = "Starting video call with " + name + ", Boss."
 
-    # Encode message and build WhatsApp URL
     encoded_message = quote(message)
     whatsapp_url = f"whatsapp://send?phone={mobile_no}&text={encoded_message}"
 
-    # Open WhatsApp Desktop with the contact
     subprocess.run(f"start {whatsapp_url}", shell=True)
-    time.sleep(6)  # Wait for WhatsApp to open fully
+    time.sleep(6)
 
     if flag == "message":
-        autogui.hotkey("enter")               # message box is auto-focused via URL
+        autogui.hotkey("enter")
     elif flag == "call":
-        autogui.hotkey("ctrl", "shift", "p")  # WhatsApp Desktop voice call shortcut
+        autogui.hotkey("ctrl", "shift", "p")
     else:
-        autogui.hotkey("ctrl", "shift", "v")  # WhatsApp Desktop video call shortcut
+        autogui.hotkey("ctrl", "shift", "v")
 
     speak(apex_message)
 
 
-#chatbot feature 
-# ✅ chatbot feature with OpenAI
+# ══════════════════════════════
+#   CHATBOT — Gemini 1.5 Flash
+# ══════════════════════════════
 def chatbot(query):
-    user_input = query.lower()
-    
-    # Initialize OpenAI client
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    
-    # Create chat completion
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant named APEX."},
-            {"role": "user", "content": user_input}
-        ],
-        temperature=0.7,
-        max_tokens=150
-    )
-    
-    # Extract response text
-    result = response.choices[0].message.content
-    print(result)
-    speak(result)
-    return result
+    try:
+        response = _gemini.generate_content(query.strip())
+        reply = response.text.strip()
+        print("[APEX] " + reply)
+        speak(reply)
+        return reply
+    except Exception as e:
+        print("[APEX ERROR] " + str(e))
+        error_msg = "Sorry Boss, I ran into an issue processing that."
+        speak(error_msg)
+        return error_msg
