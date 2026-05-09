@@ -8,7 +8,7 @@ import os
 import subprocess
 import sqlite3
 from engine.helper import remove_words
-from engine.feature import findcontact, whatsapp, chatbot      # ✅ chatbot imported here
+from engine.feature import findcontact, whatsapp, chatbot
 
 DB_PATH = "APEX.db"
 
@@ -17,7 +17,6 @@ DB_PATH = "APEX.db"
 #   CHAT HISTORY DB SETUP
 # ══════════════════════════════
 def init_chat_history_db():
-    """Create chat_history table if it doesn't exist."""
     try:
         with sqlite3.connect(DB_PATH) as conn:
             conn.execute("""
@@ -34,7 +33,6 @@ def init_chat_history_db():
 
 
 def save_message(sender: str, message: str):
-    """Save a single message to chat_history."""
     try:
         ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with sqlite3.connect(DB_PATH) as conn:
@@ -51,12 +49,16 @@ def save_message(sender: str, message: str):
 #   SPEECH
 # ══════════════════════════════
 def speak(text):
-    engine = pyttsx3.init('sapi5')
-    voices = engine.getProperty('voices')
-    engine.setProperty('voice', voices[0].id)
-    engine.setProperty('rate', 174)
-    engine.say(text)
-    engine.runAndWait()
+    try:
+        text = str(text)
+        engine = pyttsx3.init('sapi5')
+        voices = engine.getProperty('voices')
+        engine.setProperty('voice', voices[0].id)
+        engine.setProperty('rate', 174)
+        engine.say(text)
+        engine.runAndWait()
+    except Exception as e:
+        print('[APEX] speak error: ' + str(e))
 
 
 # ══════════════════════════════
@@ -152,10 +154,6 @@ def openApp(name: str) -> bool:
 # ══════════════════════════════
 @eel.expose
 def getChatHistory(limit: int = 50):
-    """
-    Return last `limit` messages as a list of dicts.
-    Called by JS on sidebar open to populate history.
-    """
     try:
         with sqlite3.connect(DB_PATH) as conn:
             c = conn.cursor()
@@ -178,7 +176,6 @@ def getChatHistory(limit: int = 50):
 
 @eel.expose
 def clearChatHistory():
-    """Wipe all chat history from DB and clear the UI."""
     try:
         with sqlite3.connect(DB_PATH) as conn:
             conn.execute("DELETE FROM chat_history")
@@ -224,124 +221,144 @@ def takecommand():
 @eel.expose
 def processQuery(query: str) -> str:
     query = query.lower().strip()
+    if not query:
+        return ''
+
     print('Processing: ' + query)
 
-    # Save user message to history
+    # ✅ FIX 1: response always initialized — prevents UnboundLocalError crash
+    response = ''
+
+    # Save user message
     save_message('user', query)
 
-    # ── OPEN ──
-    if query.startswith('open '):
-        target = query[5:].strip()
-        if target:
-            response = 'Opening ' + target + ', Boss.'
-            speak(response)
-            openApp(target)
-        else:
-            response = 'What would you like me to open, Boss?'
-            speak(response)
-
-    # ── WHATSAPP MESSAGE / CALL / VIDEO CALL ──
-    elif any(word in query for word in ('send message', 'phone call', 'video call')):
-        contact_no, name = findcontact(query)
-        if contact_no != 0:
-            if 'send message' in query:
-                flag = 'message'
-                speak('What message would you like to send, Boss?')
-                message = takecommand()
-            elif 'phone call' in query:
-                flag = 'call'
-                message = ''
-            else:
-                flag = 'videocall'
-                message = ''
-            whatsapp(contact_no, message, flag, name)
-            response = 'Done, Boss.'
-        else:
-            response = 'Sorry Boss, I could not find the contact.'
-            speak(response)
-
-    # ── TEXT / MESSAGE / WHATSAPP ──
-    elif any(word in query for word in ('text', 'message', 'whatsapp')):
-        words_to_remove = ['make', 'a', 'an', 'send', 'text', 'message',
-                           'whatsapp', 'to', 'on', 'call', 'phone']
-        contact_name = remove_words(query, words_to_remove).strip()
-        if contact_name:
-            number = contact_lookup(contact_name)
-            if number:
-                speak(f'Opening WhatsApp to message {contact_name}, Boss.')
-                webbrowser.open(f'https://wa.me/{number}')
-                response = f'Opening WhatsApp to message {contact_name}, Boss.'
-            else:
-                response = f'Sorry Boss, I could not find {contact_name} in your contacts.'
+    try:
+        # ── OPEN ──
+        if query.startswith('open '):
+            target = query[5:].strip()
+            if target:
+                response = 'Opening ' + target + ', Boss.'
                 speak(response)
-        else:
-            response = 'Who would you like to message, Boss?'
+                openApp(target)
+            else:
+                response = 'What would you like me to open, Boss?'
+                speak(response)
+
+        # ── WHATSAPP CALL / VIDEO CALL / SEND MESSAGE ──
+        elif any(word in query for word in ('send message', 'phone call', 'video call')):
+            contact_no, name = findcontact(query)
+            if contact_no != 0:
+                if 'send message' in query:
+                    flag = 'message'
+                    speak('What message would you like to send, Boss?')
+                    message = takecommand()
+                elif 'phone call' in query:
+                    flag = 'call'
+                    message = ''
+                else:
+                    flag = 'videocall'
+                    message = ''
+                whatsapp(contact_no, message, flag, name)
+                response = 'Done, Boss.'
+            else:
+                response = 'Sorry Boss, I could not find the contact.'
+                speak(response)
+
+        # ── TEXT / MESSAGE / WHATSAPP ──
+        elif any(word in query for word in ('text', 'message', 'whatsapp')):
+            words_to_remove = ['make', 'a', 'an', 'send', 'text', 'message',
+                               'whatsapp', 'to', 'on', 'call', 'phone']
+            contact_name = remove_words(query, words_to_remove).strip()
+            if contact_name:
+                number = contact_lookup(contact_name)
+                if number:
+                    response = f'Opening WhatsApp to message {contact_name}, Boss.'
+                    speak(response)
+                    webbrowser.open(f'https://wa.me/{number}')
+                else:
+                    response = f'Sorry Boss, I could not find {contact_name} in your contacts.'
+                    speak(response)
+            else:
+                response = 'Who would you like to message, Boss?'
+                speak(response)
+
+        # ── TIME ──
+        elif 'time' in query:
+            now = datetime.datetime.now().strftime("%H:%M:%S")
+            response = 'The time is ' + now + ', Boss.'
             speak(response)
 
-    # ── TIME ──
-    elif 'time' in query:
-        now = datetime.datetime.now().strftime("%H:%M:%S")
-        response = 'The time is ' + now + ', Boss.'
-        speak(response)
+        # ── DATE ──
+        elif 'date' in query or 'today' in query:
+            today = datetime.datetime.now().strftime("%A, %d %B %Y")
+            response = 'Today is ' + today + ', Boss.'
+            speak(response)
 
-    # ── DATE ──
-    elif 'date' in query or 'today' in query:
-        today = datetime.datetime.now().strftime("%A, %d %B %Y")
-        response = 'Today is ' + today + ', Boss.'
-        speak(response)
+        # ── IDENTITY ──
+        elif 'your name' in query or 'who are you' in query:
+            response = 'I am APEX, your personal AI assistant, Boss.'
+            speak(response)
 
-    # ── IDENTITY ──
-    elif 'your name' in query or 'who are you' in query:
-        response = 'I am APEX, your personal AI assistant, Boss.'
-        speak(response)
+        # ── GREET ──
+        elif any(greet in query for greet in ('hello', 'hi', 'hey')):
+            response = 'Hello Boss. How can I assist you today?'
+            speak(response)
 
-    # ── GREET ──
-    elif any(greet in query for greet in ('hello', 'hi', 'hey')):
-        response = 'Hello Boss. How can I assist you today?'
-        speak(response)
+        # ── SEARCH ──
+        elif 'search' in query or 'look up' in query:
+            search_query = query.replace('search', '').replace('look up', '').strip()
+            webbrowser.open('https://www.google.com/search?q=' + search_query)
+            response = 'Searching for ' + search_query + ', Boss.'
+            speak(response)
 
-    # ── SEARCH ──
-    elif 'search' in query or 'look up' in query:
-        search_query = query.replace('search', '').replace('look up', '').strip()
-        webbrowser.open('https://www.google.com/search?q=' + search_query)
-        response = 'Searching for ' + search_query + ', Boss.'
-        speak(response)
+        # ── YOUTUBE ──
+        elif 'youtube' in query:
+            search_query = (query
+                            .replace('youtube', '')
+                            .replace('play', '')
+                            .replace('search', '')
+                            .strip())
+            if search_query:
+                webbrowser.open('https://www.youtube.com/results?search_query=' + search_query)
+                response = 'Searching YouTube for ' + search_query + ', Boss.'
+            else:
+                webbrowser.open('https://www.youtube.com')
+                response = 'Opening YouTube, Boss.'
+            speak(response)
 
-    # ── YOUTUBE ──
-    elif 'youtube' in query:
-        search_query = (query
-                        .replace('youtube', '')
-                        .replace('play', '')
-                        .replace('search', '')
-                        .strip())
-        if search_query:
-            webbrowser.open('https://www.youtube.com/results?search_query=' + search_query)
-            response = 'Searching YouTube for ' + search_query + ', Boss.'
+        # ── EXIT ──
+        elif any(word in query for word in ('shutdown', 'exit', 'quit', 'bye')):
+            response = 'Shutting down. Goodbye Boss.'
+            speak(response)
+            save_message('apex', response)
+            os._exit(0)
+
+        # ── FALLBACK → CHATBOT (Gemini) ──
         else:
-            webbrowser.open('https://www.youtube.com')
-            response = 'Opening YouTube, Boss.'
+            print('[APEX] Falling back to chatbot for: ' + query)
+            response = chatbot(query)
+            # ✅ FIX 2: guard against None/empty from chatbot
+            if not response or not response.strip():
+                response = 'Sorry Boss, I could not process that. Please try again.'
+                speak(response)
+
+    except Exception as e:
+        # ✅ FIX 3: catch any crash inside processQuery so eel always gets a return value
+        print('[APEX] processQuery error: ' + str(e))
+        response = 'Sorry Boss, something went wrong.'
         speak(response)
 
-    # ── EXIT ──
-    elif any(word in query for word in ('shutdown', 'exit', 'quit', 'bye')):
-        response = 'Shutting down. Goodbye Boss.'
-        speak(response)
-        os._exit(0)
+    # Save APEX response
+    if response:
+        save_message('apex', response)
 
-    # ── FALLBACK → CHATBOT ──                                  # ✅ Fixed: now inside function, properly indented
-    else:
-        response = chatbot(query)                               # ✅ Fixed: capture chatbot return value
-        if not response:                                        # ✅ Guard if chatbot returns None/empty
-            response = 'I did not understand that, Boss. Please try again.'
-        speak(response)
-
-    # Save APEX response to history
-    save_message('apex', response)
-
-    # Push new messages live to sidebar via eel
-    now_time = datetime.datetime.now().strftime("%H:%M")
-    eel.appendHistoryItem('user', query, now_time)()
-    eel.appendHistoryItem('apex', response, now_time)()
+    # ✅ FIX 4: wrap eel JS calls in try/except — crashes if JS function not defined
+    try:
+        now_time = datetime.datetime.now().strftime("%H:%M")
+        eel.appendHistoryItem('user', query, now_time)()
+        eel.appendHistoryItem('apex', response, now_time)()
+    except Exception as e:
+        print('[APEX] eel.appendHistoryItem error: ' + str(e))
 
     return response
 
