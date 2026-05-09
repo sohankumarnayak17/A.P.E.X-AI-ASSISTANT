@@ -1,4 +1,6 @@
-import google.generativeai as genai      # ✅ Gemini replaces OpenAI
+import re
+from google import genai                  # ✅ new package: pip install google-genai
+from google.genai import types
 from playsound import playsound
 import eel
 import os
@@ -16,25 +18,33 @@ from engine.helper import extract_yt_term
 
 DB_PATH = "APEX.db"
 
-# ✅ Gemini setup — paste your key from aistudio.google.com/app/apikey
-genai.configure(api_key="AIzaSyBThx3WwMGypvKKwycyg3Vrk6ykeVbm1ks")
-_gemini = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
-    system_instruction=(
-        "You are APEX, an advanced AI personal assistant. "
-        "Be sharp, concise and futuristic. "
-        "Keep responses under 3 sentences unless asked for detail. "
-        "Always address the user as Boss."
-    )
+# ══════════════════════════════
+#   GEMINI SETUP
+# ══════════════════════════════
+_client = genai.Client(api_key="AIzaSyBThx3WwMGypvKKwycyg3Vrk6ykeVbm1ks")  # ← paste key here
+
+_system_prompt = (
+    "You are APEX, an advanced AI personal assistant. "
+    "Be sharp, concise and futuristic. "
+    "Keep responses under 3 sentences unless asked for detail. "
+    "Always address the user as Boss. "
+    "NEVER use markdown, bullet points, asterisks, or any special formatting. "
+    "Plain text only."
 )
 
 
+# ══════════════════════════════
+#   PLAY SOUND
+# ══════════════════════════════
 @eel.expose
 def playAssistantSound():
     music_dir = "front\\assets\\audio\\radio.mp3"
     playsound(music_dir)
 
 
+# ══════════════════════════════
+#   SPEAK
+# ══════════════════════════════
 def speak(text):
     import pyttsx3
     try:
@@ -49,30 +59,31 @@ def speak(text):
         print('[APEX] speak error: ' + str(e))
 
 
+# ══════════════════════════════
+#   OPEN COMMAND
+# ══════════════════════════════
 def opencommand(query):
     query = query.replace(ASSISTANT_NAME, "")
-    query = query.replace("open", "").strip()
-    query = query.lower()
-
+    query = query.replace("open", "").strip().lower()
     print('Trying to open: ' + query)
-
-    if query != "":
+    if query:
         speak('Opening ' + query + ', Boss.')
         os.system('start ' + query)
     else:
         speak('Please tell me what to open, Boss.')
 
 
+# ══════════════════════════════
+#   PLAY YOUTUBE
+# ══════════════════════════════
 def playyoutube(query):
     search_term = extract_yt_term(query)
-
     if not search_term:
         search_term = (query
                        .replace("play", "")
                        .replace("on youtube", "")
                        .replace("youtube", "")
                        .strip())
-
     if search_term:
         speak("Playing " + search_term + " on YouTube, Boss.")
         kit.playonyt(search_term)
@@ -80,11 +91,13 @@ def playyoutube(query):
         speak("Sorry Boss, I couldn't figure out what to play.")
 
 
+# ══════════════════════════════
+#   HOTKEY
+# ══════════════════════════════
 def hotkey():
     porcupine = None
     paud = None
     audio_stream = None
-
     try:
         porcupine = pvporcupine.create(keywords=["alexa"])
         paud = pyaudio.PyAudio()
@@ -95,11 +108,9 @@ def hotkey():
             input=True,
             frames_per_buffer=porcupine.frame_length
         )
-
         while True:
             keyword = audio_stream.read(porcupine.frame_length)
             keyword = struct.unpack_from("h" * porcupine.frame_length, keyword)
-
             keyword_index = porcupine.process(keyword)
             if keyword_index >= 0:
                 print("Hotword detected")
@@ -107,10 +118,8 @@ def hotkey():
                 autogui.press("j")
                 time.sleep(2)
                 autogui.keyUp("win")
-
     except Exception as e:
         print("[APEX] Hotkey error: " + str(e))
-
     finally:
         if porcupine is not None:
             porcupine.delete()
@@ -152,7 +161,6 @@ def whatsapp(mobile_no, message, flag, name):
 
     encoded_message = quote(message)
     whatsapp_url = f"whatsapp://send?phone={mobile_no}&text={encoded_message}"
-
     subprocess.run(f"start {whatsapp_url}", shell=True)
     time.sleep(6)
 
@@ -167,15 +175,32 @@ def whatsapp(mobile_no, message, flag, name):
 
 
 # ══════════════════════════════
-#   CHATBOT — Gemini 1.5 Flash
+#   CHATBOT — Gemini 2.0 Flash
 # ══════════════════════════════
 def chatbot(query):
     try:
-        response = _gemini.generate_content(query.strip())
+        response = _client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=query.strip(),
+            config=types.GenerateContentConfig(
+                system_instruction=_system_prompt,
+                max_output_tokens=300,
+                temperature=0.7,
+            )
+        )
         reply = response.text.strip()
+
+        # strip any leftover markdown just in case
+        reply = re.sub(r'\*+', '', reply)
+        reply = re.sub(r'#+\s?', '', reply)
+        reply = re.sub(r'`+', '', reply)
+        reply = re.sub(r'\n+', ' ', reply)
+        reply = reply.strip()
+
         print("[APEX] " + reply)
         speak(reply)
         return reply
+
     except Exception as e:
         print("[APEX ERROR] " + str(e))
         error_msg = "Sorry Boss, I ran into an issue processing that."
