@@ -22,23 +22,18 @@
   <body>
     <div class="container">
 
-      <!-- ✅ FIX 1: HUD TOP is FIRST in DOM so it renders at the top -->
       <div class="hud-top">
         <span class="hud-label">A.P.E.X // ONLINE</span>
         <span class="hud-time" id="clock"></span>
         <span class="hud-label">SYS: NOMINAL</span>
       </div>
 
-      <!-- scanlines overlay -->
       <div class="scanlines"></div>
 
-      <!-- ✅ FIX 2: SiriWave MUST have hidden attribute — only shown when mic is active -->
       <div id="siri-container" hidden></div>
 
-      <!-- Main Content -->
       <div class="main">
 
-        <!-- ✅ FIX 3: Orb wrapper is visible by default (no hidden attribute) -->
         <div class="orb-wrapper" id="orb-wrapper">
           <div class="holo-orb">
             <div class="ring ring-1">
@@ -58,18 +53,15 @@
           <p class="orb-status" id="status">STANDBY</p>
         </div>
 
-        <!-- Response Display -->
         <div class="response-box" id="responseBox">
           <p id="responseText">Awaiting your command, Boss.</p>
         </div>
 
-        <!-- Transcript -->
         <div class="transcript-box" id="transcriptBox">
           <span class="label">YOU &rsaquo;</span>
           <span id="transcriptText">...</span>
         </div>
 
-        <!-- Controls -->
         <div class="controls">
           <button class="btn-talk" id="talkBtn">&#9679; HOLD TO SPEAK</button>
           <button class="btn-mute" id="muteBtn">MUTE</button>
@@ -77,33 +69,34 @@
 
       </div><!-- /.main -->
 
-      <!-- ✅ FIX 4: Chat input row — all buttons present and correctly ordered -->
       <div class="col-md-12">
         <div class="text-center">
           <div id="textinput" class="d-flex align-items-center gap-1">
 
-            <!-- ✅ FIX 5: oninput wired, offcanvas attrs correct, no typos -->
+            <!-- ✅ FIXED: offcanvas attrs removed from input -->
             <input
               type="text"
               name="chatbox"
               id="chatbox"
               placeholder="type here"
               oninput="showhidebutton(this.value)"
-              data-bs-toggle="offcanvas"
-              data-bs-target="#offcanvasScrolling"
-              aria-controls="offcanvasScrolling"
             />
 
-            <!-- ✅ FIX 6: id="micbtn" matches showhidebutton() JS — visible by default -->
             <button id="micbtn" class="glow-on-hover">
               <i class="bi bi-mic"></i>
             </button>
 
-            <button id="chat" class="glow-on-hover">
+            <!-- ✅ FIXED: offcanvas attrs moved here to the chat button -->
+            <button
+              id="chat"
+              class="glow-on-hover"
+              data-bs-toggle="offcanvas"
+              data-bs-target="#offcanvasScrolling"
+              aria-controls="offcanvasScrolling"
+            >
               <i class="bi bi-chat"></i>
             </button>
 
-            <!-- ✅ FIX 7: sendbtn hidden by default, shown when user types -->
             <button id="sendbtn" class="glow-on-hover" hidden>
               <i class="bi bi-send"></i>
             </button>
@@ -116,19 +109,14 @@
         </div>
       </div>
 
-      <!-- ✅ FIX 8: HUD BOTTOM last in DOM so it renders at the bottom -->
       <div class="hud-bottom">
         <span class="hud-label" id="listenStatus">MIC: OFF</span>
         <span class="hud-label">APEX v1.0</span>
         <span class="hud-label" id="apiStatus">API: CONNECTED</span>
       </div>
 
-      <!-- ✅ FIX 9: Offcanvas outside .main, id matches data-bs-target exactly -->
-      <!-- ✅ FIX 10: No "show" class — was auto-opening sidebar on page load -->
-      <!-- ✅ FIX 11: data-bs-scroll="true" keeps background scrollable -->
-      <!-- ✅ FIX 12: data-bs-backdrop="false" so HUD stays visible -->
       <div
-        class="offcanvas offcanvas-start text-bg-dark"
+        class="offcanvas offcanvas-start apex-offcanvas"
         data-bs-scroll="true"
         data-bs-backdrop="false"
         tabindex="-1"
@@ -139,28 +127,25 @@
           <h5 class="offcanvas-title" id="offcanvasScrollingLabel">
             <i class="bi bi-clock-history me-2"></i>Chat History
           </h5>
-          <!-- ✅ FIX 13: data-bs-dismiss="offcanvas" correct value -->
           <button
             type="button"
-            class="btn-close btn-close-white"
+            class="btn-close"
             data-bs-dismiss="offcanvas"
             aria-label="Close"
           ></button>
         </div>
         <div class="offcanvas-body">
-          <p class="text-secondary">No history yet. Start talking to A.P.E.X.</p>
+          <p class="no-history-msg">No history yet. Start talking to A.P.E.X.</p>
+          <div id="historyList"></div>
         </div>
       </div>
 
     </div><!-- /.container -->
 
     <script src="/eel.js"></script>
-    <!-- ✅ FIX 14: jQuery upgraded to 3.7.1 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <!-- ✅ FIX 15: jQuery UI upgraded to 1.13.2 (compatible with jQuery 3.x) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js"></script>
     <script src="https://unpkg.com/siriwave/dist/siriwave.umd.min.js"></script>
-    <!-- ✅ FIX 16: Bootstrap JS bundle — required for offcanvas to open/close -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="main.js"></script>
     <script src="renderer.js"></script>
