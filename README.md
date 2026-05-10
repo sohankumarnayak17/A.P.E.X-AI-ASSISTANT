@@ -20,6 +20,7 @@ Talk to your computer. Control apps, browse the web, play music — all hands-fr
 ![Eel](https://img.shields.io/badge/Eel-UI-222222?style=for-the-badge&logo=google-chrome&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
 ![HTML](https://img.shields.io/badge/HTML%2FCSS%2FJS-E34F26?style=for-the-badge&logo=html5&logoColor=white)
+![Groq](https://img.shields.io/badge/Groq-LLaMA3-00A67E?style=for-the-badge&logo=lightning&logoColor=white)
 
 > Inspired by JARVIS — built from scratch as a real, personal productivity assistant.
 
@@ -29,7 +30,9 @@ Talk to your computer. Control apps, browse the web, play music — all hands-fr
 
 ## What is APEX?
 
-APEX (AI-Powered EXecutive) is a desktop voice assistant built entirely in Python. It listens to your voice, understands your commands, and takes action — launching apps, searching the web, playing YouTube videos, and more. It runs with a clean web-based UI powered by Eel and SiriWave.js, giving it a visual waveform interface that responds to your voice in real time.
+APEX (AI-Powered EXecutive) is a desktop voice assistant built entirely in Python. It listens to your voice, understands your commands, and takes action — launching apps, searching the web, sending WhatsApp messages, checking live weather, reading your daily agenda, and holding real conversations powered by Groq's LLaMA3.
+
+It runs with a custom red-wine dark UI built on Eel and SiriWave.js, featuring an animated holographic orb, real-time waveform, chat history sidebar, and a HUD-style interface. Every session starts with a personalised greeting — APEX tells you the time, live weather, and your agenda for the day before you say a word.
 
 All app and website commands are stored in a local SQLite database, making APEX easily extensible — add any app or site without touching the core code.
 
@@ -41,12 +44,19 @@ All app and website commands are stored in a local SQLite database, making APEX 
 |---|---|
 | 🎙️ Voice Recognition | Real-time speech-to-text using SpeechRecognition |
 | 🔊 Text-to-Speech | Natural voice responses via pyttsx3 |
+| 🤖 LLM Chatbot | Conversational AI fallback powered by Groq LLaMA3 |
+| 🌅 Startup Greeting | Greets you on launch with time, live weather & today's agenda |
+| 🌤️ Live Weather | Real-time weather fetched from OpenWeatherMap API |
+| 📅 Agenda / Tasks | Daily task tracker stored in SQLite, spoken on startup |
 | 🌐 Open Websites | Voice-triggered browser navigation |
 | 💻 Launch Applications | Open any app on your PC by name |
 | 🎵 Play YouTube | Hands-free video playback via pywhatkit |
+| 💬 WhatsApp Messaging | Send messages, make calls & video calls via WhatsApp |
+| 🕘 Chat History | Full conversation log saved to SQLite, shown in sidebar |
 | 💬 Text Fallback | Chat input when mic isn't available |
-| 🗄️ SQLite Command Registry | Extensible database for apps & web commands |
+| 🗄️ SQLite Command Registry | Extensible database for apps, web commands & contacts |
 | 🌊 SiriWave UI | Animated waveform interface in the browser |
+| 🎨 HUD Interface | Red-wine dark theme with holographic orb & scanline effects |
 
 ---
 
@@ -55,13 +65,16 @@ All app and website commands are stored in a local SQLite database, making APEX 
 ```
 Python              — Core assistant logic & command handling
 Eel                 — Bridge between Python backend and web UI
+Groq (LLaMA3)       — LLM fallback for conversational responses
 SpeechRecognition   — Converts voice to text
 pyttsx3             — Text-to-speech engine (offline)
 pywhatkit           — YouTube playback & web utilities
-SQLite              — Local database for command registry
+requests            — Live weather from OpenWeatherMap API
+SQLite              — Local database for commands, history & agenda
 HTML / CSS / JS     — Frontend UI structure and styling
 jQuery              — DOM manipulation & event handling
 SiriWave.js         — Animated voice waveform visualisation
+Bootstrap 5         — Layout, offcanvas chat history sidebar
 ```
 
 ---
@@ -71,7 +84,8 @@ SiriWave.js         — Animated voice waveform visualisation
 ### Prerequisites
 - Python 3.8+
 - A working microphone
-- Chrome or Chromium browser (Eel uses it for the UI)
+- Chrome, Chromium, or Edge browser (Eel uses it for the UI)
+- Free API keys for [Groq](https://console.groq.com) and [OpenWeatherMap](https://openweathermap.org/api)
 
 ### Run Locally
 
@@ -86,7 +100,14 @@ pip install -r requirements.txt
 # 3. Initialise the SQLite database
 py db.py
 
-# 4. Launch APEX
+# 4. Add your API keys in engine/command.py
+WEATHER_API_KEY = "your_openweathermap_key"
+CITY_NAME       = "your_city"
+
+# and in engine/feature.py
+_groq = Groq(api_key="your_groq_key")
+
+# 5. Launch APEX
 py main.py
 ```
 
@@ -97,15 +118,37 @@ py main.py
 ## How It Works
 
 ```
-You speak  →  SpeechRecognition converts audio to text
-           →  Python parses the command
-           →  SQLite is queried for matching app/website
-           →  Action is executed (launch app / open URL / play video)
-           →  pyttsx3 speaks the response back
-           →  SiriWave UI animates in sync
+App launches  →  APEX greets you by name
+              →  Speaks today's date
+              →  Fetches & speaks live weather
+              →  Reads out your agenda for the day
+
+You speak     →  SpeechRecognition converts audio to text
+              →  Python parses the command
+              →  SQLite queried for matching app / website / contact
+              →  Action executed (launch / open URL / WhatsApp / search)
+              →  Unrecognised commands fall back to Groq LLaMA3 chatbot
+              →  pyttsx3 speaks the response back
+              →  SiriWave UI animates in sync
+              →  Conversation saved to chat history DB & sidebar
 ```
 
-The modular architecture means each capability (web, apps, YouTube, TTS) is its own independent module — easy to extend, easy to debug.
+---
+
+## Chat History
+
+Every conversation is saved to `APEX.db`. Click the chat icon in the toolbar to open the history sidebar — it loads your last 50 messages in real time, styled with the APEX red-wine dark theme.
+
+---
+
+## Agenda / Task Manager
+
+Add tasks for the day directly via voice:
+
+> *"Add task review project report"*  
+> *"What's my agenda today?"*
+
+Tasks are stored in SQLite and spoken aloud every time APEX starts up.
 
 ---
 
@@ -114,11 +157,14 @@ The modular architecture means each capability (web, apps, YouTube, TTS) is its 
 APEX uses SQLite to store commands. Run `db.py` to set up the schema, then add rows directly:
 
 ```python
-# Example: Add a new app
-INSERT INTO apps (name, path) VALUES ('notepad', 'notepad.exe');
+# Add a new app
+INSERT INTO sys_command (name, path) VALUES ('notepad', 'notepad.exe');
 
-# Example: Add a new website
-INSERT INTO websites (name, url) VALUES ('linkedin', 'https://linkedin.com');
+# Add a new website
+INSERT INTO web_command (name, url) VALUES ('linkedin', 'https://linkedin.com');
+
+# Add a contact for WhatsApp
+INSERT INTO contacts (name, mobile_number) VALUES ('John', '+911234567890');
 ```
 
 No hardcoded commands — everything lives in the database.
@@ -133,11 +179,18 @@ No hardcoded commands — everything lives in the database.
 - [x] Text input fallback
 - [x] SQLite command registry
 - [x] SiriWave animated UI
+- [x] Groq LLaMA3 conversational chatbot
+- [x] Live weather on startup
+- [x] Daily agenda & task tracker
+- [x] Startup greeting sequence
+- [x] WhatsApp messaging & calling
+- [x] Chat history sidebar
+- [x] HUD red-wine dark theme UI
 - [ ] Wake word detection ("Hey APEX")
 - [ ] Web search with spoken results
 - [ ] System controls (volume, brightness, shutdown)
-- [ ] GPT/LLM integration for conversational responses
-- [ ] Task automation & scheduling
+- [ ] Task scheduling & reminders
+- [ ] Multi-language support
 
 ---
 
@@ -150,5 +203,5 @@ B.Tech CSE — KIIT University, Bhubaneswar
 ---
 
 <div align="center">
-  <sub>Built from scratch. No SDKs. No shortcuts. Just Python. 🐍</sub>
+  <sub>Built from scratch. No shortcuts. Just Python. 🐍</sub>
 </div>
