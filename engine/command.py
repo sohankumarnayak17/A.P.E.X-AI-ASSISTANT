@@ -7,10 +7,19 @@ import webbrowser
 import os
 import subprocess
 import sqlite3
+import requests
+import threading
 from engine.helper import remove_words
 from engine.feature import findcontact, whatsapp, chatbot
 
 DB_PATH = "APEX.db"
+
+# ══════════════════════════════
+#   WEATHER CONFIG
+#   Get a free key at openweathermap.org → API keys
+# ══════════════════════════════
+WEATHER_API_KEY = "YOUR_OPENWEATHERMAP_API_KEY"   # ← replace this
+CITY_NAME       = "Mumbai"                         # ← replace with your city
 
 
 # ══════════════════════════════
@@ -25,6 +34,14 @@ def init_chat_history_db():
                     sender    TEXT NOT NULL CHECK(sender IN ('user', 'apex')),
                     message   TEXT NOT NULL,
                     timestamp TEXT NOT NULL
+                )
+            """)
+            # agenda table — stores tasks for today
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS agenda (
+                    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task      TEXT NOT NULL,
+                    due_date  TEXT NOT NULL
                 )
             """)
             conn.commit()
@@ -59,6 +76,110 @@ def speak(text):
         engine.runAndWait()
     except Exception as e:
         print('[APEX] speak error: ' + str(e))
+
+
+# ══════════════════════════════
+#   WEATHER FETCH
+# ══════════════════════════════
+def get_weather() -> str:
+    try:
+        url = (
+            f"https://api.openweathermap.org/data/2.5/weather"
+            f"?q={CITY_NAME}&appid={WEATHER_API_KEY}&units=metric"
+        )
+        res = requests.get(url, timeout=5)
+        data = res.json()
+        if res.status_code == 200:
+            desc  = data['weather'][0]['description'].capitalize()
+            temp  = round(data['main']['temp'])
+            feels = round(data['main']['feels_like'])
+            return (
+                f"Currently in {CITY_NAME} it is {desc}, "
+                f"{temp} degrees Celsius, feels like {feels}."
+            )
+        else:
+            return "Weather data unavailable at the moment."
+    except Exception as e:
+        print('[APEX] weather error: ' + str(e))
+        return "I could not fetch weather data, Boss."
+
+
+# ══════════════════════════════
+#   AGENDA FETCH
+# ══════════════════════════════
+def get_today_agenda() -> str:
+    try:
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        with sqlite3.connect(DB_PATH) as conn:
+            c = conn.cursor()
+            c.execute(
+                "SELECT task FROM agenda WHERE due_date = ? ORDER BY id ASC",
+                (today,)
+            )
+            rows = c.fetchall()
+        if rows:
+            tasks = [r[0] for r in rows]
+            if len(tasks) == 1:
+                return f"You have 1 task today: {tasks[0]}."
+            joined = ", ".join(tasks[:-1]) + " and " + tasks[-1]
+            return f"You have {len(tasks)} tasks today: {joined}."
+        return "Your agenda is clear today, Boss. A great day to take on something new."
+    except Exception as e:
+        print('[APEX] agenda error: ' + str(e))
+        return "I could not load your agenda."
+
+
+# ══════════════════════════════
+#   GREETING — time-aware
+# ══════════════════════════════
+def get_greeting() -> str:
+    hour = datetime.datetime.now().hour
+    if hour < 12:
+        return "Good morning"
+    elif hour < 17:
+        return "Good afternoon"
+    else:
+        return "Good evening"
+
+
+# ══════════════════════════════
+#   STARTUP SEQUENCE
+#   Called once when APEX boots
+# ══════════════════════════════
+def startup_sequence():
+    """Runs in a background thread so the UI loads first."""
+    import time
+    time.sleep(2)   # wait for UI to fully render
+
+    greeting = get_greeting()
+    today    = datetime.datetime.now().strftime("%A, %d %B %Y")
+    weather  = get_weather()
+    agenda   = get_today_agenda()
+
+    lines = [
+        f"{greeting}, Boss. APEX is online and fully operational.",
+        f"Today is {today}.",
+        weather,
+        agenda,
+        "I am ready for your commands.",
+    ]
+
+    for line in lines:
+        print("[APEX STARTUP] " + line)
+        speak(line)
+        save_message('apex', line)
+        try:
+            now_time = datetime.datetime.now().strftime("%H:%M")
+            eel.appendHistoryItem('apex', line, now_time)()
+        except Exception:
+            pass
+
+
+@eel.expose
+def runStartupSequence():
+    """Called from main.js after the page loads."""
+    thread = threading.Thread(target=startup_sequence, daemon=True)
+    thread.start()
 
 
 # ══════════════════════════════
@@ -133,18 +254,15 @@ def contact_lookup(name: str):
 def openApp(name: str) -> bool:
     name = name.lower().strip()
     kind, value = db_lookup(name)
-
     if kind == 'web':
         webbrowser.open(value)
         return True
-
     if kind == 'app':
         if 'discord' in name:
             subprocess.Popen([value, '--processStart', 'Discord.exe'])
         else:
             subprocess.Popen(value)
         return True
-
     speak(f"Sorry Boss, I couldn't find {name} in my database.")
     return False
 
@@ -187,6 +305,46 @@ def clearChatHistory():
 
 
 # ══════════════════════════════
+#   AGENDA — EEL EXPOSED
+# ══════════════════════════════
+@eel.expose
+def addAgendaTask(task: str, due_date: str = None) -> bool:
+    """Add a task. due_date format: YYYY-MM-DD. Defaults to today."""
+    try:
+        if not due_date:
+            due_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute(
+                "INSERT INTO agenda (task, due_date) VALUES (?, ?)",
+                (task, due_date)
+            )
+            conn.commit()
+        return True
+    except Exception as e:
+        print('[APEX] addAgendaTask error: ' + str(e))
+        return False
+
+
+@eel.expose
+def getAgendaTasks(due_date: str = None):
+    """Return tasks for a given date (defaults to today)."""
+    try:
+        if not due_date:
+            due_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        with sqlite3.connect(DB_PATH) as conn:
+            c = conn.cursor()
+            c.execute(
+                "SELECT id, task, due_date FROM agenda WHERE due_date = ? ORDER BY id ASC",
+                (due_date,)
+            )
+            rows = c.fetchall()
+            return [{"id": r[0], "task": r[1], "due_date": r[2]} for r in rows]
+    except Exception as e:
+        print('[APEX] getAgendaTasks error: ' + str(e))
+        return []
+
+
+# ══════════════════════════════
 #   VOICE INPUT
 # ══════════════════════════════
 @eel.expose
@@ -225,16 +383,37 @@ def processQuery(query: str) -> str:
         return ''
 
     print('Processing: ' + query)
-
-    # ✅ FIX 1: response always initialized — prevents UnboundLocalError crash
     response = ''
-
-    # Save user message
     save_message('user', query)
 
     try:
+        # ── WEATHER ──
+        if any(word in query for word in ('weather', 'temperature', 'forecast', 'climate')):
+            response = get_weather()
+            speak(response)
+
+        # ── AGENDA ──
+        elif any(word in query for word in ('agenda', 'schedule', 'tasks', 'plan for today', 'what do i have')):
+            response = get_today_agenda()
+            speak(response)
+
+        # ── ADD TASK ──
+        elif any(phrase in query for phrase in ('add task', 'add to agenda', 'remind me to', 'add reminder')):
+            task = (query
+                    .replace('add task', '')
+                    .replace('add to agenda', '')
+                    .replace('remind me to', '')
+                    .replace('add reminder', '')
+                    .strip())
+            if task:
+                addAgendaTask(task)
+                response = f"Task added to your agenda: {task}. Got it, Boss."
+            else:
+                response = "What task would you like me to add, Boss?"
+            speak(response)
+
         # ── OPEN ──
-        if query.startswith('open '):
+        elif query.startswith('open '):
             target = query[5:].strip()
             if target:
                 response = 'Opening ' + target + ', Boss.'
@@ -333,26 +512,22 @@ def processQuery(query: str) -> str:
             save_message('apex', response)
             os._exit(0)
 
-        # ── FALLBACK → CHATBOT (Gemini) ──
+        # ── FALLBACK → CHATBOT ──
         else:
             print('[APEX] Falling back to chatbot for: ' + query)
             response = chatbot(query)
-            # ✅ FIX 2: guard against None/empty from chatbot
             if not response or not response.strip():
                 response = 'Sorry Boss, I could not process that. Please try again.'
                 speak(response)
 
     except Exception as e:
-        # ✅ FIX 3: catch any crash inside processQuery so eel always gets a return value
         print('[APEX] processQuery error: ' + str(e))
         response = 'Sorry Boss, something went wrong.'
         speak(response)
 
-    # Save APEX response
     if response:
         save_message('apex', response)
 
-    # ✅ FIX 4: wrap eel JS calls in try/except — crashes if JS function not defined
     try:
         now_time = datetime.datetime.now().strftime("%H:%M")
         eel.appendHistoryItem('user', query, now_time)()
