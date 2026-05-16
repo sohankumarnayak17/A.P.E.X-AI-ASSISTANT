@@ -1,5 +1,11 @@
+import contextlib
 import re
-from groq import Groq                     # ✅ pip install groq
+
+# pyrefly: ignore [missing-import]
+from dotenv import load_dotenv
+from groq import Groq
+
+# pyrefly: ignore [missing-import]
 from playsound import playsound
 import eel
 import os
@@ -15,13 +21,15 @@ from urllib.parse import quote
 from engine.config import ASSISTANT_NAME
 from engine.helper import extract_yt_term
 
+load_dotenv()
+
 DB_PATH = "APEX.db"
 
 # ══════════════════════════════
 #   GROQ SETUP
 #   Get free key at console.groq.com → API Keys → Create
 # ══════════════════════════════
-_groq = Groq(api_key="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")
+_groq = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 _system_prompt = (
     "You are APEX, an advanced AI personal assistant. "
@@ -47,16 +55,18 @@ def playAssistantSound():
 # ══════════════════════════════
 def speak(text):
     import pyttsx3
+
     try:
         text = str(text)
-        engine = pyttsx3.init('sapi5')
-        voices = engine.getProperty('voices')
-        engine.setProperty('voice', voices[0].id)
-        engine.setProperty('rate', 174)
+        engine = pyttsx3.init("sapi5")
+        voices = engine.getProperty("voices")
+        engine.setProperty("rate", 165)
+        engine.setProperty("volume", 1.0)
+        engine.setProperty("voice", voices[1].id)
         engine.say(text)
         engine.runAndWait()
     except Exception as e:
-        print('[APEX] speak error: ' + str(e))
+        print("[APEX] speak error: " + str(e))
 
 
 # ══════════════════════════════
@@ -65,12 +75,12 @@ def speak(text):
 def opencommand(query):
     query = query.replace(ASSISTANT_NAME, "")
     query = query.replace("open", "").strip().lower()
-    print('Trying to open: ' + query)
+    print("Trying to open: " + query)
     if query:
-        speak('Opening ' + query + ', Boss.')
-        os.system('start ' + query)
+        speak("Opening " + query + ", Boss.")
+        os.system("start " + query)
     else:
-        speak('Please tell me what to open, Boss.')
+        speak("Please tell me what to open, Boss.")
 
 
 # ══════════════════════════════
@@ -79,11 +89,12 @@ def opencommand(query):
 def playyoutube(query):
     search_term = extract_yt_term(query)
     if not search_term:
-        search_term = (query
-                       .replace("play", "")
-                       .replace("on youtube", "")
-                       .replace("youtube", "")
-                       .strip())
+        search_term = (
+            query.replace("play", "")
+            .replace("on youtube", "")
+            .replace("youtube", "")
+            .strip()
+        )
     if search_term:
         speak("Playing " + search_term + " on YouTube, Boss.")
         kit.playonyt(search_term)
@@ -106,7 +117,7 @@ def hotkey():
             channels=1,
             format=pyaudio.paInt16,
             input=True,
-            frames_per_buffer=porcupine.frame_length
+            frames_per_buffer=porcupine.frame_length,
         )
         while True:
             keyword = audio_stream.read(porcupine.frame_length)
@@ -143,7 +154,7 @@ def findcontact(query: str):
                     return (mobile_number, name)
     except Exception as e:
         print("[APEX] findcontact error: " + str(e))
-    return (0, '')
+    return (0, "")
 
 
 # ══════════════════════════════
@@ -183,7 +194,7 @@ def chatbot(query):
             model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": _system_prompt},
-                {"role": "user",   "content": query.strip()}
+                {"role": "user", "content": query.strip()},
             ],
             max_tokens=300,
             temperature=0.7,
@@ -191,10 +202,10 @@ def chatbot(query):
         reply = response.choices[0].message.content.strip()
 
         # strip any leftover markdown
-        reply = re.sub(r'\*+', '', reply)
-        reply = re.sub(r'#+\s?', '', reply)
-        reply = re.sub(r'`+',   '', reply)
-        reply = re.sub(r'\n+',  ' ', reply)
+        reply = re.sub(r"\*+", "", reply)
+        reply = re.sub(r"#+\s?", "", reply)
+        reply = re.sub(r"`+", "", reply)
+        reply = re.sub(r"\n+", " ", reply)
         reply = reply.strip()
 
         print("[APEX] " + reply)
