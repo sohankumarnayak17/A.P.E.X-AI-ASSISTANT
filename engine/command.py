@@ -51,7 +51,6 @@ _engine.setProperty('volume', 1.0)
 # ══════════════════════════════
 #   PLAY SOUND
 # ══════════════════════════════
-@eel.expose
 def playAssistantSound():
     music_dir = "front\\assets\\audio\\radio.mp3"
     playsound(music_dir)

@@ -4,7 +4,7 @@ DB_PATH = r'C:\Users\KIIT\OneDrive\Desktop\APEX\APEX.db'
 
 def searchDB(query):
     try:
-        conn   = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute('SELECT url FROM web_command WHERE LOWER(name) = ?', (query,))
         result = cursor.fetchone()
