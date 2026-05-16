@@ -10,6 +10,7 @@ import pyaudio
 import pvporcupine
 import pyautogui as autogui
 import eel
+from pathlib import Path
 from dotenv import load_dotenv
 from groq import Groq
 from playsound import playsound
@@ -18,7 +19,8 @@ from engine.config import ASSISTANT_NAME
 from engine.helper import extract_yt_term
 from engine.db import searchDB
 
-load_dotenv()
+# ── Force load .env from project root ─────────────────────
+load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
 DB_PATH = r"C:\Users\KIIT\OneDrive\Desktop\APEX\APEX.db"
 
@@ -128,8 +130,6 @@ def hotkey():
     paud         = None
     audio_stream = None
     try:
-        # "jarvis" or "computer" are free built-in porcupine keywords
-        # Replace with custom "apex" model file when available
         porcupine = pvporcupine.create(keywords=["jarvis"])
         paud      = pyaudio.PyAudio()
         audio_stream = paud.open(
