@@ -1,6 +1,8 @@
 // ── APEX renderer.js ──
 
-// DOM
+// ══════════════════════════════════════
+//   DOM
+// ══════════════════════════════════════
 const talkBtn      = document.getElementById('talkBtn')
 const muteBtn      = document.getElementById('muteBtn')
 const status       = document.getElementById('status')
@@ -13,7 +15,17 @@ const chatbox      = document.getElementById('chatbox')
 const sendbtn      = document.getElementById('sendbtn')
 
 // ══════════════════════════════════════
-//   3D PARTICLE SPHERE — red wine theme
+//   CLOCK
+// ══════════════════════════════════════
+function updateClock() {
+  const now = new Date()
+  clockEl.textContent = now.toLocaleTimeString('en-US', { hour12: false })
+}
+setInterval(updateClock, 1000)
+updateClock()
+
+// ══════════════════════════════════════
+//   3D PARTICLE SPHERE
 // ══════════════════════════════════════
 const canvas = document.getElementById('particleCanvas')
 const ctx    = canvas.getContext('2d')
@@ -85,7 +97,7 @@ function drawSphere() {
         ctx.moveTo(a.sx, a.sy)
         ctx.lineTo(b.sx, b.sy)
         ctx.strokeStyle = `rgba(150, 0, 0, ${Math.max(0, alpha)})`
-        ctx.lineWidth = 0.4
+        ctx.lineWidth   = 0.4
         ctx.stroke()
       }
     }
@@ -129,107 +141,10 @@ function animate() {
 animate()
 
 // ══════════════════════════════════════
-//   SEND MESSAGE
-// ══════════════════════════════════════
-function sendMessage(text) {
-  if (!text || text.trim() === '') return
-
-  transcriptEl.textContent    = text
-  responseText.textContent    = 'Thinking...'
-  status.textContent          = 'PROCESSING...'
-  apiStatus.textContent       = 'API: THINKING...'
-  listening = true
-  document.body.classList.add('listening')
-
-  eel.processQuery(text)(function(response) {
-    responseText.textContent  = response
-    status.textContent        = 'STANDBY'
-    apiStatus.textContent     = 'API: CONNECTED'
-    listening = false
-    document.body.classList.remove('listening')
-    addToHistory(text, response)
-  })
-}
-
-// ── ENTER KEY ──
-chatbox.addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') {
-    const text = this.value.trim()
-    if (text !== '') {
-      sendMessage(text)
-      this.value = ''
-      sendbtn.setAttribute('hidden', true)
-    }
-  }
-})
-
-// ── SEND BUTTON CLICK ──
-sendbtn.addEventListener('click', function() {
-  const text = chatbox.value.trim()
-  if (text !== '') {
-    sendMessage(text)
-    chatbox.value = ''
-    this.setAttribute('hidden', true)
-  }
-})
-
-// ── SHOW/HIDE SEND BUTTON ──
-function showhidebutton(val) {
-  if (val.trim() !== '') {
-    sendbtn.removeAttribute('hidden')
-  } else {
-    sendbtn.setAttribute('hidden', true)
-  }
-}
-
-// ══════════════════════════════════════
-//   CHAT HISTORY
-// ══════════════════════════════════════
-function addToHistory(userText, apexText) {
-  const historyList = document.getElementById('historyList')
-  const noMsg       = document.querySelector('.no-history-msg')
-  if (noMsg) noMsg.style.display = 'none'
-
-  const entry = document.createElement('div')
-  entry.className = 'history-entry'
-  entry.innerHTML = `
-    <div class="history-user"><span>YOU ›</span>${userText}</div>
-    <div class="history-apex"><span>APEX ›</span>${apexText}</div>
-  `
-  historyList.prepend(entry)
-}
-
-// ══════════════════════════════════════
-//   MIC BUTTON
-// ══════════════════════════════════════
-document.getElementById('micbtn').addEventListener('click', () => {
-  if (isMuted) return
-  startListening()
-  setTimeout(() => stopListening(), 6000) // auto stop after 6s
-})
-
-// ══════════════════════════════════════
-//   TALK BUTTON
-// ══════════════════════════════════════
-talkBtn.addEventListener('mousedown',  ()  => { if (!isMuted) startListening() })
-talkBtn.addEventListener('mouseup',    ()  => stopListening())
-talkBtn.addEventListener('mouseleave', ()  => stopListening())
-talkBtn.addEventListener('touchstart', (e) => { e.preventDefault(); if (!isMuted) startListening() })
-talkBtn.addEventListener('touchend',   ()  => stopListening())
-
-// ══════════════════════════════════════
-//   MUTE
-// ══════════════════════════════════════
-let isMuted = false
-muteBtn.addEventListener('click', () => {
-  isMuted                  = !isMuted
-  muteBtn.textContent      = isMuted ? 'UNMUTE' : 'MUTE'
-  listenStatus.textContent = isMuted ? 'MIC: MUTED' : 'MIC: OFF'
-})
-
-// ══════════════════════════════════════
 //   STATE HELPERS
 // ══════════════════════════════════════
+let isMuted = false
+
 function startListening() {
   listening = true
   document.body.classList.add('listening')
@@ -258,11 +173,109 @@ function bringToFront() {
 }
 
 // ══════════════════════════════════════
-//   CLOCK
+//   CHAT HISTORY
 // ══════════════════════════════════════
-function updateClock() {
-  const now = new Date()
-  clockEl.textContent = now.toLocaleTimeString('en-US', { hour12: false })
+function addToHistory(userText, apexText) {
+  const historyList = document.getElementById('historyList')
+  const noMsg       = document.querySelector('.no-history-msg')
+  if (noMsg) noMsg.style.display = 'none'
+
+  const entry = document.createElement('div')
+  entry.className = 'history-entry'
+  entry.innerHTML = `
+    <div class="history-user"><span>YOU ›</span>${userText}</div>
+    <div class="history-apex"><span>APEX ›</span>${apexText}</div>
+  `
+  historyList.prepend(entry)
 }
-setInterval(updateClock, 1000)
-updateClock()
+
+// ══════════════════════════════════════
+//   SEND MESSAGE
+// ══════════════════════════════════════
+function sendMessage(text) {
+  if (!text || text.trim() === '') return
+
+  transcriptEl.textContent = text
+  responseText.textContent = 'Thinking...'
+  status.textContent       = 'PROCESSING...'
+  apiStatus.textContent    = 'API: THINKING...'
+  listening = true
+  document.body.classList.add('listening')
+
+  eel.processQuery(text)(function(response) {
+    responseText.textContent = response
+    status.textContent       = 'STANDBY'
+    apiStatus.textContent    = 'API: CONNECTED'
+    listening = false
+    document.body.classList.remove('listening')
+    addToHistory(text, response)
+  })
+}
+
+// ══════════════════════════════════════
+//   SHOW / HIDE SEND BUTTON
+// ══════════════════════════════════════
+function showhidebutton(val) {
+  if (val.trim() !== '') {
+    sendbtn.removeAttribute('hidden')
+  } else {
+    sendbtn.setAttribute('hidden', true)
+  }
+}
+
+// ══════════════════════════════════════
+//   ENTER KEY
+// ══════════════════════════════════════
+chatbox.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    const text = this.value.trim()
+    if (text !== '') {
+      sendMessage(text)
+      this.value = ''
+      showhidebutton('')
+      sendbtn.setAttribute('hidden', true)
+      this.blur()
+    }
+  }
+})
+
+// ══════════════════════════════════════
+//   SEND BUTTON
+// ══════════════════════════════════════
+sendbtn.addEventListener('click', function() {
+  const text = chatbox.value.trim()
+  if (text !== '') {
+    sendMessage(text)
+    chatbox.value = ''
+    showhidebutton('')
+    this.setAttribute('hidden', true)
+    chatbox.blur()
+  }
+})
+
+// ══════════════════════════════════════
+//   MIC BUTTON
+// ══════════════════════════════════════
+document.getElementById('micbtn').addEventListener('click', () => {
+  if (isMuted) return
+  startListening()
+  setTimeout(() => stopListening(), 6000)
+})
+
+// ══════════════════════════════════════
+//   TALK BUTTON
+// ══════════════════════════════════════
+talkBtn.addEventListener('mousedown',  ()  => { if (!isMuted) startListening() })
+talkBtn.addEventListener('mouseup',    ()  => stopListening())
+talkBtn.addEventListener('mouseleave', ()  => stopListening())
+talkBtn.addEventListener('touchstart', (e) => { e.preventDefault(); if (!isMuted) startListening() })
+talkBtn.addEventListener('touchend',   ()  => stopListening())
+
+// ══════════════════════════════════════
+//   MUTE BUTTON
+// ══════════════════════════════════════
+muteBtn.addEventListener('click', () => {
+  isMuted                  = !isMuted
+  muteBtn.textContent      = isMuted ? 'UNMUTE' : 'MUTE'
+  listenStatus.textContent = isMuted ? 'MIC: MUTED' : 'MIC: OFF'
+})
