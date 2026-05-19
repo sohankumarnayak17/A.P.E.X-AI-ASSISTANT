@@ -3,8 +3,7 @@ import eel
 import threading
 import time
 from playsound import playsound
-from engine.feature import *
-from engine.command import *
+from engine.feature import hotkey
 from engine.security import start_clap_detection
 
 eel.init("front")
@@ -15,22 +14,26 @@ try:
 except Exception as e:
     print(f"[APEX] Startup sound error: {e}")
 
-# ── Start eel server silently (no browser on startup) ──
-threading.Thread(
-    target=lambda: eel.start(
-        'index.html',
-        mode=None,
-        host='localhost',
-        port=5001,
-        block=False
-    ),
-    daemon=True
-).start()
+print("[APEX] Starting server on http://localhost:5001")
 
-# ── Start both triggers ──
-threading.Thread(target=start_clap_detection, daemon=True).start()  # trigger 1: clap
-threading.Thread(target=hotkey, daemon=True).start()                 # trigger 2: say "Apex"
+# ── Start both triggers in background ──
+threading.Thread(target=start_clap_detection, daemon=True).start()
+threading.Thread(target=hotkey, daemon=True).start()
 
 print("[APEX] Running in background — clap or say Apex to wake me up Boss.")
-while True:
-    time.sleep(1)
+
+# ── Start eel server ──
+try:
+    eel.start(
+        'index.html',
+        mode     = 'edge',
+        host     = 'localhost',
+        port     = 5001,
+        size     = (1280, 720),
+        position = (100, 100),
+        block    = True
+    )
+except Exception as e:
+    print(f"[APEX] Server error: {e}")
+    while True:
+        time.sleep(1)

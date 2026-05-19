@@ -1,4 +1,4 @@
-import pyttsx3
+﻿import pyttsx3
 import speech_recognition as sr
 import pyaudio
 import eel
@@ -9,14 +9,16 @@ import subprocess
 import sqlite3
 import time
 from engine.helper import remove_words
-from engine.feature import findcontact, whatsapp, chatbot
+from engine.feature import (
+    speak, findcontact, whatsapp, chatbot,
+    opencommand, playyoutube, hotkey
+)
 from engine.memory import record_interaction, get_recent_context, learn_preference
 
-DB_PATH = "APEX.db"
-
+DB_PATH = r"C:\Users\KIIT\OneDrive\Desktop\APEX\APEX.db"
 
 # ══════════════════════════════
-#   CHAT HISTORY DB SETUP
+#   CHAT HISTORY DB
 # ══════════════════════════════
 def init_chat_history_db():
     try:
@@ -33,7 +35,6 @@ def init_chat_history_db():
     except Exception as e:
         print('[APEX] chat_history init error: ' + str(e))
 
-
 def save_message(sender: str, message: str):
     try:
         ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -46,32 +47,15 @@ def save_message(sender: str, message: str):
     except Exception as e:
         print('[APEX] save_message error: ' + str(e))
 
-
-# ══════════════════════════════
-#   SPEECH
-# ══════════════════════════════
-def speak(text):
-    try:
-        text = str(text)
-        engine = pyttsx3.init('sapi5')
-        voices = engine.getProperty('voices')
-        engine.setProperty('voice', voices[0].id)
-        engine.setProperty('rate', 174)
-        engine.say(text)
-        engine.runAndWait()
-    except Exception as e:
-        print('[APEX] speak error: ' + str(e))
-
-
 # ══════════════════════════════
 #   MIC SELECTION
 # ══════════════════════════════
 def get_best_mic():
-    p = pyaudio.PyAudio()
+    p         = pyaudio.PyAudio()
     mic_names = sr.Microphone.list_microphone_names()
     input_keywords = ['microphone', 'mic in', 'bluetooth', 'headset', 'array']
-    skip_keywords  = ['speaker', 'output', 'hap', 'stereo mix', 'headphones 1',
-                      'headphones 2', 'pc speaker']
+    skip_keywords  = ['speaker', 'output', 'hap', 'stereo mix',
+                      'headphones 1', 'headphones 2', 'pc speaker']
     for i, name in enumerate(mic_names):
         name_lower = name.lower()
         if any(skip in name_lower for skip in skip_keywords):
@@ -88,7 +72,6 @@ def get_best_mic():
     p.terminate()
     print('Falling back to mic index 1')
     return 1
-
 
 # ══════════════════════════════
 #   DATABASE LOOKUP
@@ -109,7 +92,6 @@ def db_lookup(name: str):
         print('[APEX] DB error: ' + str(e))
     return (None, None)
 
-
 # ══════════════════════════════
 #   CONTACT LOOKUP
 # ══════════════════════════════
@@ -127,7 +109,6 @@ def contact_lookup(name: str):
     except Exception as e:
         print('[APEX] Contact lookup error: ' + str(e))
     return None
-
 
 # ══════════════════════════════
 #   OPEN APP / SITE
@@ -147,7 +128,6 @@ def openApp(name: str) -> bool:
     speak(f"Sorry Boss, I couldn't find {name} in my database.")
     return False
 
-
 # ══════════════════════════════
 #   CHAT HISTORY — EEL EXPOSED
 # ══════════════════════════════
@@ -162,8 +142,7 @@ def getChatHistory(limit: int = 50):
                 ORDER BY id DESC
                 LIMIT ?
             """, (limit,))
-            rows = c.fetchall()
-            rows = list(reversed(rows))
+            rows = list(reversed(c.fetchall()))
             return [
                 {"sender": r[0], "message": r[1], "timestamp": r[2]}
                 for r in rows
@@ -171,7 +150,6 @@ def getChatHistory(limit: int = 50):
     except Exception as e:
         print('[APEX] getChatHistory error: ' + str(e))
         return []
-
 
 @eel.expose
 def clearChatHistory():
@@ -184,7 +162,6 @@ def clearChatHistory():
         print('[APEX] clearChatHistory error: ' + str(e))
         return False
 
-
 # ══════════════════════════════
 #   VOICE INPUT
 # ══════════════════════════════
@@ -196,8 +173,8 @@ def takecommand():
         with sr.Microphone(device_index=device_index, sample_rate=44100) as source:
             print('Listening...')
             r.energy_threshold = 300
-            r.pause_threshold = 1
-            r.adjust_for_ambient_noise(source, duration=1)
+            r.pause_threshold  = 1
+            r.adjust_for_ambient_noise(source, duration=0.5)
             audio = r.listen(source, timeout=10, phrase_time_limit=6)
         print('Recognizing...')
         query = r.recognize_google(audio, language='en-in')
@@ -213,9 +190,8 @@ def takecommand():
         print('Error: ' + str(e))
         return ''
 
-
 # ══════════════════════════════
-#   QUERY PROCESSING
+#   PROCESS QUERY
 # ══════════════════════════════
 @eel.expose
 def processQuery(query: str) -> str:
@@ -225,28 +201,22 @@ def processQuery(query: str) -> str:
 
     print('Processing: ' + query)
     response = ''
-    command_type = 'general'
-    start_time = time.time()
-    
-    # Save user message
     save_message('user', query)
 
     try:
         # ── OPEN ──
         if query.startswith('open '):
-            command_type = 'open_app'
             target = query[5:].strip()
             if target:
                 response = 'Opening ' + target + ', Boss.'
                 speak(response)
                 openApp(target)
-                learn_preference('apps', 'frequently_opened', target, confidence=0.6)
             else:
                 response = 'What would you like me to open, Boss?'
                 speak(response)
 
-        # ── WHATSAPP CALL / VIDEO CALL / SEND MESSAGE ──
-        elif any(word in query for word in ('send message', 'phone call', 'video call')):
+        # ── WHATSAPP ──
+        elif any(w in query for w in ('send message', 'phone call', 'video call')):
             contact_no, name = findcontact(query)
             if contact_no != 0:
                 if 'send message' in query:
@@ -254,10 +224,10 @@ def processQuery(query: str) -> str:
                     speak('What message would you like to send, Boss?')
                     message = takecommand()
                 elif 'phone call' in query:
-                    flag = 'call'
+                    flag    = 'call'
                     message = ''
                 else:
-                    flag = 'videocall'
+                    flag    = 'videocall'
                     message = ''
                 whatsapp(contact_no, message, flag, name)
                 response = 'Done, Boss.'
@@ -265,33 +235,15 @@ def processQuery(query: str) -> str:
                 response = 'Sorry Boss, I could not find the contact.'
                 speak(response)
 
-        # ── TEXT / MESSAGE / WHATSAPP ──
-        elif any(word in query for word in ('text', 'message', 'whatsapp')):
-            words_to_remove = ['make', 'a', 'an', 'send', 'text', 'message',
-                               'whatsapp', 'to', 'on', 'call', 'phone']
-            contact_name = remove_words(query, words_to_remove).strip()
-            if contact_name:
-                number = contact_lookup(contact_name)
-                if number:
-                    response = f'Opening WhatsApp to message {contact_name}, Boss.'
-                    speak(response)
-                    webbrowser.open(f'https://wa.me/{number}')
-                else:
-                    response = f'Sorry Boss, I could not find {contact_name} in your contacts.'
-                    speak(response)
-            else:
-                response = 'Who would you like to message, Boss?'
-                speak(response)
-
         # ── TIME ──
         elif 'time' in query:
-            now = datetime.datetime.now().strftime("%H:%M:%S")
+            now      = datetime.datetime.now().strftime("%H:%M:%S")
             response = 'The time is ' + now + ', Boss.'
             speak(response)
 
         # ── DATE ──
         elif 'date' in query or 'today' in query:
-            today = datetime.datetime.now().strftime("%A, %d %B %Y")
+            today    = datetime.datetime.now().strftime("%A, %d %B %Y")
             response = 'Today is ' + today + ', Boss.'
             speak(response)
 
@@ -301,7 +253,7 @@ def processQuery(query: str) -> str:
             speak(response)
 
         # ── GREET ──
-        elif any(greet in query for greet in ('hello', 'hi', 'hey')):
+        elif any(g in query for g in ('hello', 'hi', 'hey')):
             response = 'Hello Boss. How can I assist you today?'
             speak(response)
 
@@ -328,18 +280,17 @@ def processQuery(query: str) -> str:
             speak(response)
 
         # ── EXIT ──
-        elif any(word in query for word in ('shutdown', 'exit', 'quit', 'bye')):
+        elif any(w in query for w in ('shutdown', 'exit', 'quit', 'bye')):
             response = 'Shutting down. Goodbye Boss.'
             speak(response)
             save_message('apex', response)
             os._exit(0)
 
-        # ── FALLBACK → GEMINI CHATBOT ──
+        # ── FALLBACK → CHATBOT ──
         else:
-            print('[APEX] Falling back to chatbot for: ' + query)
             response = chatbot(query)
             if not response or not response.strip():
-                response = 'Sorry Boss, I could not process that. Please try again.'
+                response = 'Sorry Boss, I could not process that.'
                 speak(response)
 
     except Exception as e:
@@ -359,9 +310,8 @@ def processQuery(query: str) -> str:
 
     return response
 
-
 # ══════════════════════════════
-#   COMBINED VOICE COMMAND
+#   ALL COMMAND
 # ══════════════════════════════
 @eel.expose
 def allcommand() -> str:
@@ -371,8 +321,7 @@ def allcommand() -> str:
         return processQuery(query)
     return ''
 
-
 # ══════════════════════════════
-#   INIT ON IMPORT
+#   INIT
 # ══════════════════════════════
 init_chat_history_db()
