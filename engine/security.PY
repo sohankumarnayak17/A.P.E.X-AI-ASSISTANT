@@ -47,9 +47,14 @@ def on_clap():
         daemon=True
     ).start()
     try:
-        eel.bringToFront()
+        # Open the UI window on clap
+        import subprocess
+        subprocess.Popen(
+            ["cmd", "/c", "start", "msedge", "http://localhost:5001/index.html"],
+            shell=False
+        )
     except Exception as e:
-        print("[APEX] eel error: " + str(e))
+        print("[APEX] open UI error: " + str(e))
 
 # ══════════════════════════════
 #   CLAP LISTENER LOOP
