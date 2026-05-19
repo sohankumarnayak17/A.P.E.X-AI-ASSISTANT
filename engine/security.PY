@@ -47,7 +47,6 @@ def on_clap():
         daemon=True
     ).start()
     try:
-        # Open the UI window on clap
         import subprocess
         subprocess.Popen(
             ["cmd", "/c", "start", "msedge", "http://localhost:5001/index.html"],
