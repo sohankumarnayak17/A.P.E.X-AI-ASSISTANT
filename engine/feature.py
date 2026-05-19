@@ -1,4 +1,4 @@
-import re
+﻿import re
 import os
 import struct
 import time
@@ -17,23 +17,23 @@ from engine.helper import extract_yt_term
 
 DB_PATH = r"C:\Users\KIIT\OneDrive\Desktop\APEX\APEX.db"
 
-# ══════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #   GROQ SETUP
-# ══════════════════════════════
-_groq = Groq(api_key=os.getenv("GROQ_API_KEY"))
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+_groq = Groq(api_key="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")
 
 _system_prompt = (
     "You are APEX, an advanced AI personal assistant. "
-    "Speak naturally like FRIDAY from Iron Man — sharp, confident, slightly witty. "
+    "Speak naturally like FRIDAY from Iron Man â€” sharp, confident, slightly witty. "
     "Keep responses under 3 sentences unless asked for detail. "
     "Always address the user as Boss. "
     "NEVER use markdown, bullet points, asterisks, or any special formatting. "
     "Plain text only."
 )
 
-# ══════════════════════════════
-#   PYTTSX3 — init once
-# ══════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+#   PYTTSX3 â€” init once
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 import pyttsx3 as _tts
 _engine = _tts.init('sapi5')
 _voices = _engine.getProperty('voices')
@@ -41,9 +41,9 @@ _engine.setProperty('voice',  _voices[1].id)  # Zira
 _engine.setProperty('rate',   165)
 _engine.setProperty('volume', 1.0)
 
-# ══════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #   PLAY SOUND
-# ══════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 @eel.expose
 def playAssistantSound():
     try:
@@ -51,9 +51,9 @@ def playAssistantSound():
     except Exception as e:
         print('[APEX] sound error: ' + str(e))
 
-# ══════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #   SPEAK
-# ══════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 def speak(text):
     try:
         text = re.sub(r'\*+', '', str(text))
@@ -66,9 +66,9 @@ def speak(text):
     except Exception as e:
         print('[APEX] speak error: ' + str(e))
 
-# ══════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #   OPEN COMMAND
-# ══════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 def opencommand(query):
     from engine.db import searchDB
     query = query.replace(ASSISTANT_NAME, "")
@@ -87,9 +87,9 @@ def opencommand(query):
     else:
         speak("I couldn't find " + query + " in my database, Boss.")
 
-# ══════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #   PLAY YOUTUBE
-# ══════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 def playyoutube(query):
     search_term = extract_yt_term(query)
     if not search_term:
@@ -104,9 +104,9 @@ def playyoutube(query):
     else:
         speak("Sorry Boss, I couldn't figure out what to play.")
 
-# ══════════════════════════════
-#   HOTKEY — wake word
-# ══════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+#   HOTKEY â€” wake word
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 def hotkey():
     porcupine    = None
     paud         = None
@@ -142,9 +142,9 @@ def hotkey():
             if paud         is not None: paud.terminate()
         except: pass
 
-# ══════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #   FIND CONTACT
-# ══════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 def findcontact(query: str):
     try:
         with sqlite3.connect(DB_PATH) as conn:
@@ -158,9 +158,9 @@ def findcontact(query: str):
         print("[APEX] findcontact error: " + str(e))
     return (0, '')
 
-# ══════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #   WHATSAPP
-# ══════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 def whatsapp(mobile_no, message, flag, name):
     if not mobile_no:
         speak("I couldn't find that contact, Boss.")
@@ -189,9 +189,9 @@ def whatsapp(mobile_no, message, flag, name):
         print("[APEX] WhatsApp error: " + str(e))
         speak("Something went wrong with WhatsApp, Boss.")
 
-# ══════════════════════════════
-#   CHATBOT — Groq
-# ══════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+#   CHATBOT â€” Groq
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 def chatbot(query):
     try:
         response = _groq.chat.completions.create(

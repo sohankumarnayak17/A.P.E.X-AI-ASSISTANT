@@ -85,6 +85,7 @@ function drawSphere() {
     return { sx: cx + r.x * scale, sy: cy + r.y * scale, z: r.z, scale }
   })
 
+  // Lines
   for (let i = 0; i < projected.length; i++) {
     for (let j = i + 1; j < projected.length; j++) {
       const a = projected[i], b = projected[j]
@@ -102,6 +103,7 @@ function drawSphere() {
     }
   }
 
+  // Dots
   projected.forEach(p => {
     const norm  = (p.z + RADIUS) / (2 * RADIUS)
     const alpha = listening ? norm * 0.9 + 0.1 : norm * 0.75 + 0.08
@@ -118,6 +120,7 @@ function drawSphere() {
     ctx.fill()
   })
 
+  // Core
   const coreGlow = ctx.createRadialGradient(cx, cy, 0, cx, cy, listening ? 22 : 14)
   coreGlow.addColorStop(0,   `rgba(255, 80, 80, ${listening ? 0.95 : 0.7})`)
   coreGlow.addColorStop(0.4, `rgba(180,  0,  0, ${listening ? 0.5  : 0.3})`)
@@ -156,6 +159,7 @@ function stopListening() {
   status.textContent       = 'STANDBY'
 }
 
+// ── Called by Python on clap ──
 function bringToFront() {
   window.focus()
   listening = true
@@ -169,15 +173,38 @@ function bringToFront() {
 }
 
 // ══════════════════════════════════════
-//   FADE TRANSCRIPT — works for both
-//   Enter key and Send button
+//   PYTHON → JS BRIDGE
+//   appendHistoryItem called by Python
+// ══════════════════════════════════════
+function appendHistoryItem(sender, message, timestamp) {
+  // Python calls this — we handle it silently
+  // History is already managed in addToHistory()
+  console.log('[APEX] ' + sender + ': ' + message)
+}
+eel.expose(appendHistoryItem)
+
+// ══════════════════════════════════════
+//   FADE TRANSCRIPT
 // ══════════════════════════════════════
 function fadeTranscript(newText) {
   transcriptEl.style.transition = 'opacity 0.25s ease'
   transcriptEl.style.opacity    = '0'
+  transcriptEl.textContent      = ''
   setTimeout(() => {
     transcriptEl.textContent   = newText
     transcriptEl.style.opacity = '1'
+  }, 250)
+}
+
+// ══════════════════════════════════════
+//   FADE RESPONSE
+// ══════════════════════════════════════
+function fadeResponse(newText) {
+  responseText.style.transition = 'opacity 0.25s ease'
+  responseText.style.opacity    = '0'
+  setTimeout(() => {
+    responseText.textContent   = newText
+    responseText.style.opacity = '1'
   }, 250)
 }
 
@@ -189,9 +216,9 @@ function addToHistory(userText, apexText) {
   const noMsg       = document.querySelector('.no-history-msg')
   if (noMsg) noMsg.style.display = 'none'
 
-  const entry = document.createElement('div')
-  entry.className = 'history-entry'
-  entry.innerHTML = `
+  const entry       = document.createElement('div')
+  entry.className   = 'history-entry'
+  entry.innerHTML   = `
     <div class="history-user"><span>YOU ›</span>${userText}</div>
     <div class="history-apex"><span>APEX ›</span>${apexText}</div>
   `
@@ -204,18 +231,28 @@ function addToHistory(userText, apexText) {
 function sendMessage(text) {
   if (!text || text.trim() === '') return
 
+  // Clear boxes instantly
+  responseText.textContent   = ''
+  transcriptEl.textContent   = ''
+
+  // Fade in new transcript
   fadeTranscript(text)
-  responseText.textContent = 'Thinking...'
-  status.textContent       = 'PROCESSING...'
-  apiStatus.textContent    = 'API: THINKING...'
-  listening = true
+
+  // Show thinking after fade
+  setTimeout(() => {
+    responseText.textContent = 'Thinking...'
+  }, 260)
+
+  status.textContent    = 'PROCESSING...'
+  apiStatus.textContent = 'API: THINKING...'
+  listening             = true
   document.body.classList.add('listening')
 
   eel.processQuery(text)(function(response) {
-    responseText.textContent = response
-    status.textContent       = 'STANDBY'
-    apiStatus.textContent    = 'API: CONNECTED'
-    listening = false
+    fadeResponse(response)
+    status.textContent    = 'STANDBY'
+    apiStatus.textContent = 'API: CONNECTED'
+    listening             = false
     document.body.classList.remove('listening')
     addToHistory(text, response)
   })
