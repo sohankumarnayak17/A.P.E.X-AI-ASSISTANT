@@ -8,23 +8,24 @@ import eel
 # ══════════════════════════════
 #   CLAP DETECTION CONFIG
 # ══════════════════════════════
-CLAP_THRESHOLD  = 50      # tuned for your mic
-CLAP_COOLDOWN   = 2.0     # seconds before next clap registers
-SAMPLE_RATE     = 44100
-CHUNK           = 1024
-DEVICE_INDEX    = 0       # Microsoft Sound Mapper — your working mic
+CLAP_THRESHOLD    = 2500    # raised — filters out ambient noise & breathing
+CLAP_COOLDOWN     = 2.0     # seconds before next clap registers
+DOUBLE_CLAP_GAP   = 0.6     # max seconds between two claps to count as double
+SAMPLE_RATE       = 44100
+CHUNK             = 1024
+DEVICE_INDEX      = 0       # Microsoft Sound Mapper
 
-_last_clap_time = 0
-_clap_running   = False
+_last_clap_time   = 0
+_pending_clap     = False   # waiting to see if a second clap follows
+_clap_running     = False
 
 # ══════════════════════════════
 #   PRE-INIT TTS — instant speak
-#   No delay on clap response
 # ══════════════════════════════
 _engine = pyttsx3.init('sapi5')
 _voices = _engine.getProperty('voices')
 _engine.setProperty('voice',  _voices[1].id)  # Zira
-_engine.setProperty('rate',   175)             # slightly faster
+_engine.setProperty('rate',   175)
 _engine.setProperty('volume', 1.0)
 
 def _fast_speak(text):
@@ -36,12 +37,13 @@ def _fast_speak(text):
 
 # ══════════════════════════════
 #   CLAP DETECTED — ACTION
+#   Only fires on a confirmed double-clap
 # ══════════════════════════════
 def on_clap():
-    print("[APEX] Clap detected!")
+    print("[APEX] Double clap confirmed!")
     threading.Thread(
         target=_fast_speak,
-        args=("Welcome back Boss. APEX is online and ready.",),
+        args=("Yes Boss, APEX is online and ready.",),
         daemon=True
     ).start()
     try:
@@ -53,7 +55,7 @@ def on_clap():
 #   CLAP LISTENER LOOP
 # ══════════════════════════════
 def _clap_loop():
-    global _last_clap_time
+    global _last_clap_time, _pending_clap
 
     p = pyaudio.PyAudio()
     try:
@@ -70,7 +72,7 @@ def _clap_loop():
         p.terminate()
         return
 
-    print("[APEX] Clap detection active — clap to wake me up Boss.")
+    print("[APEX] Clap detection active — double clap to wake me up Boss.")
 
     while _clap_running:
         try:
@@ -78,11 +80,24 @@ def _clap_loop():
             audio_np = np.frombuffer(data, dtype=np.int16)
             volume   = np.abs(audio_np).mean()
 
+            now = time.time()
+
             if volume > CLAP_THRESHOLD:
-                now = time.time()
                 if now - _last_clap_time > CLAP_COOLDOWN:
-                    _last_clap_time = now
-                    on_clap()
+                    # First clap — start waiting for second
+                    if not _pending_clap:
+                        _pending_clap   = True
+                        _last_clap_time = now
+                        print("[APEX] First clap — waiting for second...")
+                    # Second clap within gap window — fire!
+                    elif now - _last_clap_time <= DOUBLE_CLAP_GAP:
+                        _pending_clap   = False
+                        _last_clap_time = now
+                        on_clap()
+
+            # Pending clap timed out — reset
+            if _pending_clap and (now - _last_clap_time > DOUBLE_CLAP_GAP):
+                _pending_clap = False
 
         except Exception as e:
             print("[APEX] Clap loop error: " + str(e))
@@ -107,4 +122,3 @@ def start_clap_detection():
 def stop_clap_detection():
     global _clap_running
     _clap_running = False
-    print("[APEX] Clap detection stopped.")
