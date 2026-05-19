@@ -13,7 +13,6 @@ from engine.feature import (
     speak, findcontact, whatsapp, chatbot,
     opencommand, playyoutube, hotkey
 )
-from engine.memory import record_interaction, get_recent_context, learn_preference
 
 DB_PATH = r"C:\Users\KIIT\OneDrive\Desktop\APEX\APEX.db"
 
@@ -300,13 +299,6 @@ def processQuery(query: str) -> str:
 
     if response:
         save_message('apex', response)
-
-    try:
-        now_time = datetime.datetime.now().strftime("%H:%M")
-        eel.appendHistoryItem('user', query, now_time)()
-        eel.appendHistoryItem('apex', response, now_time)()
-    except Exception as e:
-        print('[APEX] eel.appendHistoryItem error: ' + str(e))
 
     return response
 
