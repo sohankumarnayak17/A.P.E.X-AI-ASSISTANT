@@ -367,7 +367,7 @@ def hotkey():
     while True:
         try:
             with mic as source:
-                audio = r.listen(source, timeout=5, phrase_time_limit=4)
+                audio = r.listen(source, timeout=10, phrase_time_limit=4)
             text = r.recognize_google(audio).lower().strip()
             print("[APEX] Heard: " + text)
             triggers = ["apex", "hey apex", "wake up apex", "wake apex"]
@@ -375,14 +375,16 @@ def hotkey():
                 print("[APEX] Wake word detected!")
                 maybe_suggest()
                 speak("Yes Boss, I am listening.")
-                autogui.keyDown("win")
-                autogui.press("j")
-                time.sleep(2)
-                autogui.keyUp("win")
+                import subprocess
+                subprocess.Popen(
+                    ["cmd", "/c", "start", "msedge", "http://localhost:5001/index.html"],
+                    shell=False
+                )
+            # if heard but no trigger word — ignore silently, no UI open
         except sr.WaitTimeoutError:
-            pass
+            pass   # nothing heard in 10s — keep listening silently
         except sr.UnknownValueError:
-            pass
+            pass   # heard noise but couldn't understand — ignore
         except sr.RequestError as e:
             print("[APEX] STT error: " + str(e))
             time.sleep(2)
