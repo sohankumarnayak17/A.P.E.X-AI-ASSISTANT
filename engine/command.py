@@ -1,4 +1,4 @@
-import contextlib
+﻿import contextlib
 import re
 import os
 import json
@@ -345,44 +345,50 @@ def playyoutube(query):
 
 # ══════════════════════════════
 #   HOTKEY — Wake word
+#   SpeechRecognition-based — detects "apex", "hey apex", "wake up apex"
+#   pip install SpeechRecognition
 # ══════════════════════════════
 def hotkey():
-    porcupine    = None
-    paud         = None
-    audio_stream = None
     try:
-        porcupine = pvporcupine.create(keywords=["jarvis"])
-        paud      = pyaudio.PyAudio()
-        audio_stream = paud.open(
-            rate               = porcupine.sample_rate,
-            channels           = 1,
-            format             = pyaudio.paInt16,
-            input              = True,
-            input_device_index = 1,
-            frames_per_buffer  = porcupine.frame_length
-        )
-        print('[APEX] Wake word listening...')
-        while True:
-            keyword       = audio_stream.read(porcupine.frame_length, exception_on_overflow=False)
-            keyword       = struct.unpack_from("h" * porcupine.frame_length, keyword)
-            keyword_index = porcupine.process(keyword)
-            if keyword_index >= 0:
+        import speech_recognition as sr
+    except ImportError:
+        print("[APEX] Install SpeechRecognition: pip install SpeechRecognition")
+        return
+
+    r = sr.Recognizer()
+    r.energy_threshold = 2000
+    r.dynamic_energy_threshold = True
+    mic = sr.Microphone(device_index=1)
+
+    print("[APEX] Wake word listening for apex...")
+    with mic as source:
+        r.adjust_for_ambient_noise(source, duration=1)
+
+    while True:
+        try:
+            with mic as source:
+                audio = r.listen(source, timeout=5, phrase_time_limit=4)
+            text = r.recognize_google(audio).lower().strip()
+            print("[APEX] Heard: " + text)
+            triggers = ["apex", "hey apex", "wake up apex", "wake apex"]
+            if any(w in text for w in triggers):
                 print("[APEX] Wake word detected!")
-                maybe_suggest()                 # ← Phase 2: proactive suggestion
-                speak("Yes Boss, I'm listening.")
+                maybe_suggest()
+                speak("Yes Boss, I am listening.")
                 autogui.keyDown("win")
                 autogui.press("j")
                 time.sleep(2)
                 autogui.keyUp("win")
-    except Exception as e:
-        print("[APEX] Hotkey error: " + str(e))
-    finally:
-        with contextlib.suppress(Exception):
-            if porcupine    is not None: porcupine.delete()
-            if audio_stream is not None: audio_stream.close()
-            if paud         is not None: paud.terminate()
-
-
+        except sr.WaitTimeoutError:
+            pass
+        except sr.UnknownValueError:
+            pass
+        except sr.RequestError as e:
+            print("[APEX] STT error: " + str(e))
+            time.sleep(2)
+        except Exception as e:
+            print("[APEX] Hotkey error: " + str(e))
+            time.sleep(1)
 # ══════════════════════════════
 #   FIND CONTACT
 # ══════════════════════════════
