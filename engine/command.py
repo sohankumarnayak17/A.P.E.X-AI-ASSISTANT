@@ -373,13 +373,16 @@ def hotkey():
             triggers = ["apex", "hey apex", "wake up apex", "wake apex"]
             if any(w in text for w in triggers):
                 print("[APEX] Wake word detected!")
+                import subprocess
+                # Open UI first
+                subprocess.Popen("start msedge http://localhost:5001/index.html", shell=True)
+                time.sleep(1)
                 maybe_suggest()
                 speak("Yes Boss, I am listening.")
-                import subprocess
-                subprocess.Popen(
-                    ["cmd", "/c", "start", "msedge", "http://localhost:5001/index.html"],
-                    shell=False
-                )
+                try:
+                    eel.ShowHint("APEX is online.")()
+                except Exception:
+                    pass
             # if heard but no trigger word — ignore silently, no UI open
         except sr.WaitTimeoutError:
             pass   # nothing heard in 10s — keep listening silently

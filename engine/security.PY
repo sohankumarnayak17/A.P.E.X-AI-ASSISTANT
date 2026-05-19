@@ -47,10 +47,11 @@ def on_clap():
         daemon=True
     ).start()
     try:
-        import subprocess
+        import subprocess, time
+        time.sleep(0.5)
         subprocess.Popen(
-            ["cmd", "/c", "start", "msedge", "http://localhost:5001/index.html"],
-            shell=False
+            "start msedge http://localhost:5001/index.html",
+            shell=True
         )
     except Exception as e:
         print("[APEX] open UI error: " + str(e))
@@ -88,20 +89,8 @@ def _clap_loop():
 
             if volume > CLAP_THRESHOLD:
                 if now - _last_clap_time > CLAP_COOLDOWN:
-                    # First clap — start waiting for second
-                    if not _pending_clap:
-                        _pending_clap   = True
-                        _last_clap_time = now
-                        print("[APEX] First clap — waiting for second...")
-                    # Second clap within gap window — fire!
-                    elif now - _last_clap_time <= DOUBLE_CLAP_GAP:
-                        _pending_clap   = False
-                        _last_clap_time = now
-                        on_clap()
-
-            # Pending clap timed out — reset
-            if _pending_clap and (now - _last_clap_time > DOUBLE_CLAP_GAP):
-                _pending_clap = False
+                    _last_clap_time = now
+                    on_clap()   # single clap fires immediately
 
         except Exception as e:
             print("[APEX] Clap loop error: " + str(e))
