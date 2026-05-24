@@ -1,5 +1,4 @@
-﻿import pyttsx3
-import speech_recognition as sr
+﻿import speech_recognition as sr
 import pyaudio
 import eel
 import datetime
@@ -8,7 +7,6 @@ import os
 import subprocess
 import sqlite3
 import time
-from engine.helper import remove_words
 from engine.feature import (
     speak, findcontact, whatsapp, chatbot,
     opencommand, playyoutube, hotkey
@@ -63,14 +61,12 @@ def get_best_mic():
             try:
                 info = p.get_device_info_by_index(i)
                 if info.get('maxInputChannels', 0) > 0:
-                    print('Using mic ' + str(i) + ': ' + name)
                     p.terminate()
                     return i
             except Exception:
                 continue
     p.terminate()
-    print('Falling back to mic index 1')
-    return 1
+    return 0
 
 # ══════════════════════════════
 #   DATABASE LOOKUP
@@ -79,35 +75,27 @@ def db_lookup(name: str):
     try:
         with sqlite3.connect(DB_PATH) as conn:
             c = conn.cursor()
-            c.execute("SELECT url FROM web_command WHERE name = ?", (name,))
+            # exact match
+            c.execute("SELECT url FROM web_command WHERE LOWER(name) = ?", (name,))
             row = c.fetchone()
             if row:
                 return ('web', row[0])
-            c.execute("SELECT path FROM sys_command WHERE name = ?", (name,))
+            c.execute("SELECT path FROM sys_command WHERE LOWER(name) = ?", (name,))
+            row = c.fetchone()
+            if row:
+                return ('app', row[0])
+            # fuzzy match
+            c.execute("SELECT url FROM web_command WHERE LOWER(name) LIKE ?", ('%' + name + '%',))
+            row = c.fetchone()
+            if row:
+                return ('web', row[0])
+            c.execute("SELECT path FROM sys_command WHERE LOWER(name) LIKE ?", ('%' + name + '%',))
             row = c.fetchone()
             if row:
                 return ('app', row[0])
     except Exception as e:
         print('[APEX] DB error: ' + str(e))
     return (None, None)
-
-# ══════════════════════════════
-#   CONTACT LOOKUP
-# ══════════════════════════════
-def contact_lookup(name: str):
-    try:
-        with sqlite3.connect(DB_PATH) as conn:
-            c = conn.cursor()
-            c.execute(
-                "SELECT mobile_number FROM contacts WHERE name LIKE ?",
-                ('%' + name + '%',)
-            )
-            row = c.fetchone()
-            if row:
-                return row[0]
-    except Exception as e:
-        print('[APEX] Contact lookup error: ' + str(e))
-    return None
 
 # ══════════════════════════════
 #   OPEN APP / SITE
@@ -119,16 +107,16 @@ def openApp(name: str) -> bool:
         webbrowser.open(value)
         return True
     if kind == 'app':
-        if 'discord' in name:
-            subprocess.Popen([value, '--processStart', 'Discord.exe'])
-        else:
+        try:
             subprocess.Popen(value)
+        except Exception as e:
+            print('[APEX] openApp error: ' + str(e))
         return True
-    speak(f"Sorry Boss, I couldn't find {name} in my database.")
+    speak("Couldn't find " + name + " in my database, Boss.")
     return False
 
 # ══════════════════════════════
-#   CHAT HISTORY — EEL EXPOSED
+#   CHAT HISTORY
 # ══════════════════════════════
 @eel.expose
 def getChatHistory(limit: int = 50):
@@ -138,14 +126,10 @@ def getChatHistory(limit: int = 50):
             c.execute("""
                 SELECT sender, message, timestamp
                 FROM chat_history
-                ORDER BY id DESC
-                LIMIT ?
+                ORDER BY id DESC LIMIT ?
             """, (limit,))
             rows = list(reversed(c.fetchall()))
-            return [
-                {"sender": r[0], "message": r[1], "timestamp": r[2]}
-                for r in rows
-            ]
+            return [{"sender": r[0], "message": r[1], "timestamp": r[2]} for r in rows]
     except Exception as e:
         print('[APEX] getChatHistory error: ' + str(e))
         return []
@@ -166,24 +150,23 @@ def clearChatHistory():
 # ══════════════════════════════
 @eel.expose
 def takecommand():
-    r = sr.Recognizer()
+    r            = sr.Recognizer()
     device_index = get_best_mic()
     try:
         with sr.Microphone(device_index=device_index, sample_rate=44100) as source:
             print('Listening...')
             r.energy_threshold = 300
-            r.pause_threshold  = 1
-            r.adjust_for_ambient_noise(source, duration=0.5)
-            audio = r.listen(source, timeout=10, phrase_time_limit=6)
-        print('Recognizing...')
+            r.pause_threshold  = 0.8
+            r.adjust_for_ambient_noise(source, duration=0.3)
+            audio = r.listen(source, timeout=8, phrase_time_limit=6)
         query = r.recognize_google(audio, language='en-in')
         print('You said: ' + query)
         return query.lower()
     except sr.WaitTimeoutError:
-        speak('No speech detected. Try again Boss.')
+        speak('No speech detected Boss.')
         return ''
     except sr.UnknownValueError:
-        speak('Could not understand. Try again Boss.')
+        speak('Could not understand Boss.')
         return ''
     except Exception as e:
         print('Error: ' + str(e))
@@ -204,8 +187,8 @@ def processQuery(query: str) -> str:
 
     try:
         # ── OPEN ──
-        if query.startswith('open '):
-            target = query[5:].strip()
+        if 'open ' in query:
+            target = query.replace('open', '').strip()
             if target:
                 response = 'Opening ' + target + ', Boss.'
                 speak(response)
@@ -219,8 +202,8 @@ def processQuery(query: str) -> str:
             contact_no, name = findcontact(query)
             if contact_no != 0:
                 if 'send message' in query:
-                    flag = 'message'
-                    speak('What message would you like to send, Boss?')
+                    flag    = 'message'
+                    speak('What message, Boss?')
                     message = takecommand()
                 elif 'phone call' in query:
                     flag    = 'call'
@@ -231,7 +214,7 @@ def processQuery(query: str) -> str:
                 whatsapp(contact_no, message, flag, name)
                 response = 'Done, Boss.'
             else:
-                response = 'Sorry Boss, I could not find the contact.'
+                response = 'Could not find the contact, Boss.'
                 speak(response)
 
         # ── TIME ──
@@ -289,12 +272,12 @@ def processQuery(query: str) -> str:
         else:
             response = chatbot(query)
             if not response or not response.strip():
-                response = 'Sorry Boss, I could not process that.'
+                response = 'Sorry Boss, could not process that.'
                 speak(response)
 
     except Exception as e:
         print('[APEX] processQuery error: ' + str(e))
-        response = 'Sorry Boss, something went wrong.'
+        response = 'Something went wrong Boss.'
         speak(response)
 
     if response:
@@ -308,7 +291,6 @@ def processQuery(query: str) -> str:
 @eel.expose
 def allcommand() -> str:
     query = takecommand()
-    print('Query: ' + query)
     if query and query.strip():
         return processQuery(query)
     return ''

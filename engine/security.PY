@@ -1,116 +1,85 @@
-import pyaudio
-import numpy as np
+﻿import speech_recognition as sr
 import threading
 import time
 import pyttsx3
+import eel
 
 # ══════════════════════════════
-#   CLAP DETECTION CONFIG
+#   WAKE WORDS
 # ══════════════════════════════
-CLAP_THRESHOLD    = 2500
-CLAP_COOLDOWN     = 1.5     # seconds before next clap registers
-SAMPLE_RATE       = 44100
-CHUNK             = 1024
-DEVICE_INDEX      = 0
+WAKE_WORDS   = ['hey apex', 'wake up', 'apex wake up', 'hey a pex', 'apex']
+DEVICE_INDEX = 0
 
-_last_clap_time   = 0
-_clap_running     = False
-_tts_lock         = threading.Lock()  # ← prevents "run loop already started"
+_running = False
 
 # ══════════════════════════════
-#   TTS — thread-safe wrapper
+#   FAST SPEAK — pre-initialized
 # ══════════════════════════════
-_engine = None
-
-def _init_tts():
-    global _engine
-    if _engine is None:
-        _engine = pyttsx3.init('sapi5')
-        voices = _engine.getProperty('voices')
-        _engine.setProperty('voice', voices[1].id)
-        _engine.setProperty('rate', 175)
-        _engine.setProperty('volume', 1.0)
+_engine = pyttsx3.init('sapi5')
+_voices = _engine.getProperty('voices')
+_engine.setProperty('voice',  _voices[1].id)
+_engine.setProperty('rate',   175)
+_engine.setProperty('volume', 1.0)
 
 def _fast_speak(text):
-    with _tts_lock:  # ← only one thread speaks at a time
-        try:
-            _init_tts()
-            _engine.say(text)
-            _engine.runAndWait()
-        except Exception as e:
-            print('[APEX] fast_speak error: ' + str(e))
+    try:
+        _engine.say(text)
+        _engine.runAndWait()
+    except Exception as e:
+        print('[APEX] fast_speak error: ' + str(e))
 
 # ══════════════════════════════
-#   CLAP DETECTED — OPEN UI
+#   WAKE DETECTED
 # ══════════════════════════════
-def on_clap():
-    print("[APEX] Clap detected! Opening UI...")
+def on_wake():
+    print("[APEX] Wake word detected!")
     threading.Thread(
         target=_fast_speak,
-        args=("Yes Boss, APEX is online.",),
+        args=("I'm here Boss. What do you need?",),
         daemon=True
     ).start()
-    
-    # Open browser to UI
     try:
-        import webbrowser
-        time.sleep(0.3)
-        webbrowser.open("http://localhost:5001/index.html")
+        eel.bringToFront()
     except Exception as e:
-        print("[APEX] UI open error: " + str(e))
+        print("[APEX] eel error: " + str(e))
 
 # ══════════════════════════════
-#   CLAP LISTENER LOOP
+#   WAKE WORD LISTENER LOOP
 # ══════════════════════════════
-def _clap_loop():
-    global _last_clap_time
+def _wake_loop():
+    r = sr.Recognizer()
+    r.energy_threshold = 300
+    r.pause_threshold  = 0.5
+    print("[APEX] Wake word detection active — say 'Hey APEX' to wake me up.")
 
-    p = pyaudio.PyAudio()
-    try:
-        stream = p.open(
-            format=pyaudio.paInt16,
-            channels=1,
-            rate=SAMPLE_RATE,
-            input=True,
-            input_device_index=DEVICE_INDEX,
-            frames_per_buffer=CHUNK
-        )
-    except Exception as e:
-        print("[APEX] Mic error: " + str(e))
-        p.terminate()
-        return
-
-    print("[APEX] Clap detection ready.")
-
-    while _clap_running:
+    while _running:
         try:
-            data = stream.read(CHUNK, exception_on_overflow=False)
-            audio_np = np.frombuffer(data, dtype=np.int16)
-            volume = np.abs(audio_np).mean()
-            now = time.time()
-
-            if volume > CLAP_THRESHOLD and now - _last_clap_time > CLAP_COOLDOWN:
-                _last_clap_time = now
-                on_clap()
-
+            with sr.Microphone(device_index=DEVICE_INDEX) as source:
+                r.adjust_for_ambient_noise(source, duration=0.2)
+                audio = r.listen(source, timeout=4, phrase_time_limit=3)
+            text = r.recognize_google(audio, language='en-in').lower()
+            print('[APEX security] Heard: ' + text)
+            if any(w in text for w in WAKE_WORDS):
+                on_wake()
+        except sr.WaitTimeoutError:
+            continue
+        except sr.UnknownValueError:
+            continue
         except Exception as e:
-            print("[APEX] Clap loop error: " + str(e))
-            break
-
-    stream.stop_stream()
-    stream.close()
-    p.terminate()
+            print('[APEX] Wake loop error: ' + str(e))
+            time.sleep(1)
 
 # ══════════════════════════════
-#   START
+#   START / STOP
 # ══════════════════════════════
 def start_clap_detection():
-    global _clap_running
-    if _clap_running:
+    global _running
+    if _running:
         return
-    _clap_running = True
-    threading.Thread(target=_clap_loop, daemon=True).start()
+    _running = True
+    threading.Thread(target=_wake_loop, daemon=True).start()
+    print("[APEX] Clap detection ready.")
 
 def stop_clap_detection():
-    global _clap_running
-    _clap_running = False
+    global _running
+    _running = False

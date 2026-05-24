@@ -9,6 +9,7 @@ import pyaudio
 import pvporcupine
 import pyautogui as autogui
 import eel
+import pyttsx3 as _tts
 from groq import Groq
 from playsound import playsound
 from urllib.parse import quote
@@ -17,33 +18,32 @@ from engine.helper import extract_yt_term
 
 DB_PATH = r"C:\Users\KIIT\OneDrive\Desktop\APEX\APEX.db"
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-#   GROQ SETUP
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════
+#   GROQ — hardcoded, no .env
+# ══════════════════════════════
 _groq = Groq(api_key="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")
 
 _system_prompt = (
     "You are APEX, an advanced AI personal assistant. "
-    "Speak naturally like FRIDAY from Iron Man â€” sharp, confident, slightly witty. "
-    "Keep responses under 3 sentences unless asked for detail. "
+    "Speak naturally like FRIDAY from Iron Man — sharp, confident, slightly witty. "
+    "Keep responses under 2 sentences. "
     "Always address the user as Boss. "
-    "NEVER use markdown, bullet points, asterisks, or any special formatting. "
+    "NEVER use markdown, bullet points, asterisks, or special formatting. "
     "Plain text only."
 )
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-#   PYTTSX3 â€” init once
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-import pyttsx3 as _tts
+# ══════════════════════════════
+#   PYTTSX3 — init once
+# ══════════════════════════════
 _engine = _tts.init('sapi5')
 _voices = _engine.getProperty('voices')
 _engine.setProperty('voice',  _voices[1].id)  # Zira
-_engine.setProperty('rate',   165)
+_engine.setProperty('rate',   175)
 _engine.setProperty('volume', 1.0)
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════
 #   PLAY SOUND
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════
 @eel.expose
 def playAssistantSound():
     try:
@@ -51,9 +51,9 @@ def playAssistantSound():
     except Exception as e:
         print('[APEX] sound error: ' + str(e))
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-#   SPEAK
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════
+#   SPEAK — fast, no reinit
+# ══════════════════════════════
 def speak(text):
     try:
         text = re.sub(r'\*+', '', str(text))
@@ -66,14 +66,13 @@ def speak(text):
     except Exception as e:
         print('[APEX] speak error: ' + str(e))
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════
 #   OPEN COMMAND
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════
 def opencommand(query):
     from engine.db import searchDB
     query = query.replace(ASSISTANT_NAME, "")
     query = query.replace("open", "").strip().lower()
-    print('[APEX] Trying to open: ' + query)
     if not query:
         speak('What would you like me to open, Boss?')
         return
@@ -82,14 +81,14 @@ def opencommand(query):
         speak('Opening ' + query + ', Boss.')
         webbrowser.open(value)
     elif kind == 'app':
-        speak('Launching ' + query + ' for you, Boss.')
+        speak('Launching ' + query + ', Boss.')
         subprocess.Popen(value)
     else:
-        speak("I couldn't find " + query + " in my database, Boss.")
+        speak("Couldn't find " + query + " in my database, Boss.")
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════
 #   PLAY YOUTUBE
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════
 def playyoutube(query):
     search_term = extract_yt_term(query)
     if not search_term:
@@ -104,47 +103,41 @@ def playyoutube(query):
     else:
         speak("Sorry Boss, I couldn't figure out what to play.")
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-#   HOTKEY â€” wake word
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════
+#   HOTKEY — wake word via
+#   speech recognition (no pvporcupine)
+# ══════════════════════════════
 def hotkey():
-    porcupine    = None
-    paud         = None
-    audio_stream = None
-    try:
-        porcupine = pvporcupine.create(keywords=["jarvis"])
-        paud      = pyaudio.PyAudio()
-        audio_stream = paud.open(
-            rate              = porcupine.sample_rate,
-            channels          = 1,
-            format            = pyaudio.paInt16,
-            input             = True,
-            frames_per_buffer = porcupine.frame_length
-        )
-        print('[APEX] Wake word listening...')
-        while True:
-            keyword       = audio_stream.read(porcupine.frame_length, exception_on_overflow=False)
-            keyword       = struct.unpack_from("h" * porcupine.frame_length, keyword)
-            keyword_index = porcupine.process(keyword)
-            if keyword_index >= 0:
-                print("[APEX] Wake word detected!")
-                speak("Yes Boss, I'm listening.")
-                autogui.keyDown("win")
-                autogui.press("j")
-                time.sleep(2)
-                autogui.keyUp("win")
-    except Exception as e:
-        print("[APEX] Hotkey error: " + str(e))
-    finally:
+    import speech_recognition as sr
+    r = sr.Recognizer()
+    r.energy_threshold  = 300
+    r.pause_threshold   = 0.5
+    print('[APEX] Wake word listening — say "hey apex"...')
+    while True:
         try:
-            if porcupine    is not None: porcupine.delete()
-            if audio_stream is not None: audio_stream.close()
-            if paud         is not None: paud.terminate()
-        except: pass
+            with sr.Microphone(device_index=0) as source:
+                r.adjust_for_ambient_noise(source, duration=0.2)
+                audio = r.listen(source, timeout=5, phrase_time_limit=3)
+            text = r.recognize_google(audio, language='en-in').lower()
+            print('[APEX] Heard: ' + text)
+            if 'hey apex' in text or 'wake up' in text or 'apex' in text:
+                print('[APEX] Wake word detected!')
+                speak("I'm here Boss. What do you need?")
+                try:
+                    eel.bringToFront()
+                except:
+                    pass
+        except sr.WaitTimeoutError:
+            continue
+        except sr.UnknownValueError:
+            continue
+        except Exception as e:
+            print('[APEX] Hotkey error: ' + str(e))
+            time.sleep(1)
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════
 #   FIND CONTACT
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════
 def findcontact(query: str):
     try:
         with sqlite3.connect(DB_PATH) as conn:
@@ -158,24 +151,24 @@ def findcontact(query: str):
         print("[APEX] findcontact error: " + str(e))
     return (0, '')
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════
 #   WHATSAPP
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════
 def whatsapp(mobile_no, message, flag, name):
     if not mobile_no:
-        speak("I couldn't find that contact, Boss.")
+        speak("Couldn't find that contact, Boss.")
         return
     if flag == "message":
-        apex_message = "Message sent successfully, Boss."
+        apex_message = "Message sent, Boss."
     elif flag == "call":
         message      = ""
         apex_message = "Calling " + name + ", Boss."
     else:
         message      = ""
         apex_message = "Starting video call with " + name + ", Boss."
-    encoded_message = quote(message)
-    whatsapp_url    = f"whatsapp://send?phone={mobile_no}&text={encoded_message}"
     try:
+        encoded_message = quote(message)
+        whatsapp_url    = f"whatsapp://send?phone={mobile_no}&text={encoded_message}"
         subprocess.run(f"start {whatsapp_url}", shell=True)
         time.sleep(5)
         if flag == "message":
@@ -189,9 +182,9 @@ def whatsapp(mobile_no, message, flag, name):
         print("[APEX] WhatsApp error: " + str(e))
         speak("Something went wrong with WhatsApp, Boss.")
 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-#   CHATBOT â€” Groq
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ══════════════════════════════
+#   CHATBOT — Groq fast
+# ══════════════════════════════
 def chatbot(query):
     try:
         response = _groq.chat.completions.create(
@@ -200,7 +193,7 @@ def chatbot(query):
                 {"role": "system", "content": _system_prompt},
                 {"role": "user",   "content": query.strip()}
             ],
-            max_tokens  = 300,
+            max_tokens  = 150,
             temperature = 0.7,
         )
         reply = response.choices[0].message.content.strip()
@@ -213,6 +206,6 @@ def chatbot(query):
         return reply
     except Exception as e:
         print("[APEX ERROR] " + str(e))
-        error_msg = "Sorry Boss, I ran into an issue processing that."
+        error_msg = "Sorry Boss, I ran into an issue."
         speak(error_msg)
         return error_msg
