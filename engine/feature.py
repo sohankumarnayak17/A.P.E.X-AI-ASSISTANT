@@ -18,8 +18,7 @@ DB_PATH = r"C:\Users\KIIT\OneDrive\Desktop\APEX\APEX.db"
 
 # ══════════════════════════════
 #   SINGLE PYTTSX3 ENGINE
-#   One instance, thread-safe lock
-#   security.py imports speak() from here
+#   Thread-safe, non-blocking
 # ══════════════════════════════
 _tts_lock   = threading.Lock()
 _tts_engine = None
@@ -29,39 +28,61 @@ def _get_tts():
     if _tts_engine is None:
         _tts_engine = pyttsx3.init('sapi5')
         voices = _tts_engine.getProperty('voices')
-        _tts_engine.setProperty('voice',  voices[1].id)  # Zira
-        _tts_engine.setProperty('rate',   175)
+        _tts_engine.setProperty('voice',  voices[1].id)
+        _tts_engine.setProperty('rate',   185)   # faster rate
         _tts_engine.setProperty('volume', 1.0)
     return _tts_engine
 
 def speak(text):
+    """Non-blocking speak — runs in background thread"""
+    def _speak():
+        try:
+            text_clean = re.sub(r'\*+', '', str(text))
+            text_clean = re.sub(r'#+\s?', '', text_clean)
+            text_clean = re.sub(r'`+',   '', text_clean)
+            text_clean = re.sub(r'\n+',  ' ', text_clean).strip()
+            if not text_clean:
+                return
+            print('[APEX speaks] ' + text_clean)
+            with _tts_lock:
+                engine = _get_tts()
+                engine.say(text_clean)
+                engine.runAndWait()
+        except Exception as e:
+            print('[APEX] speak error: ' + str(e))
+    threading.Thread(target=_speak, daemon=True).start()
+
+def speak_wait(text):
+    """Blocking speak — use when you need to wait"""
     try:
-        text = re.sub(r'\*+', '', str(text))
-        text = re.sub(r'#+\s?', '', text)
-        text = re.sub(r'`+',   '', text)
-        text = re.sub(r'\n+',  ' ', text).strip()
-        if not text:
+        text_clean = re.sub(r'\*+', '', str(text))
+        text_clean = re.sub(r'#+\s?', '', text_clean)
+        text_clean = re.sub(r'`+',   '', text_clean)
+        text_clean = re.sub(r'\n+',  ' ', text_clean).strip()
+        if not text_clean:
             return
-        print('[APEX speaks] ' + text)
+        print('[APEX speaks] ' + text_clean)
         with _tts_lock:
             engine = _get_tts()
-            engine.say(text)
+            engine.say(text_clean)
             engine.runAndWait()
     except Exception as e:
         print('[APEX] speak error: ' + str(e))
 
 # ══════════════════════════════
-#   GROQ — hardcoded key
+#   GROQ — fast setup
 # ══════════════════════════════
-_groq = Groq(api_key="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")
+_groq = None
+try:
+    _groq = Groq(api_key="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")
+    print("[APEX] Groq connected.")
+except Exception as e:
+    print(f"[APEX] Groq error: {e}")
 
 _system_prompt = (
-    "You are APEX, an advanced AI personal assistant. "
-    "Speak naturally like FRIDAY from Iron Man — sharp, confident, slightly witty. "
-    "Keep responses under 2 sentences. "
-    "Always address the user as Boss. "
-    "NEVER use markdown, bullet points, asterisks, or special formatting. "
-    "Plain text only."
+    "You are APEX, an advanced AI assistant like FRIDAY from Iron Man. "
+    "Be sharp and concise. Max 1-2 sentences. "
+    "Call the user Boss. No markdown, no formatting. Plain text only."
 )
 
 # ══════════════════════════════
@@ -70,7 +91,11 @@ _system_prompt = (
 @eel.expose
 def playAssistantSound():
     try:
-        playsound("front\\assets\\audio\\radio.mp3")
+        threading.Thread(
+            target=playsound,
+            args=("front\\assets\\audio\\radio.mp3",),
+            daemon=True
+        ).start()
     except Exception as e:
         print('[APEX] sound error: ' + str(e))
 
@@ -79,8 +104,7 @@ def playAssistantSound():
 # ══════════════════════════════
 def opencommand(query):
     from engine.db import searchDB
-    query = query.replace(ASSISTANT_NAME, "")
-    query = query.replace("open", "").strip().lower()
+    query = query.replace(ASSISTANT_NAME, "").replace("open", "").strip().lower()
     if not query:
         speak('What would you like me to open, Boss?')
         return
@@ -92,7 +116,7 @@ def opencommand(query):
         speak('Launching ' + query + ', Boss.')
         subprocess.Popen(value)
     else:
-        speak("Couldn't find " + query + " in my database, Boss.")
+        speak("Couldn't find " + query + " Boss.")
 
 # ══════════════════════════════
 #   PLAY YOUTUBE
@@ -109,11 +133,10 @@ def playyoutube(query):
         speak("Playing " + search_term + " on YouTube, Boss.")
         webbrowser.open("https://www.youtube.com/results?search_query=" + quote(search_term))
     else:
-        speak("Sorry Boss, I couldn't figure out what to play.")
+        speak("Sorry Boss, what should I play?")
 
 # ══════════════════════════════
 #   HOTKEY — speech wake word
-#   No pvporcupine needed
 # ══════════════════════════════
 def hotkey():
     import speech_recognition as sr
@@ -130,7 +153,7 @@ def hotkey():
             print('[APEX] Heard: ' + text)
             if any(w in text for w in ['hey apex', 'wake up', 'apex wake', 'apex']):
                 print('[APEX] Wake word detected!')
-                speak("I'm here Boss. What do you need?")
+                speak("I'm here Boss.")
                 try:
                     eel.bringToFront()
                 except:
@@ -173,7 +196,7 @@ def whatsapp(mobile_no, message, flag, name):
         apex_message = "Calling " + name + ", Boss."
     else:
         message      = ""
-        apex_message = "Starting video call with " + name + ", Boss."
+        apex_message = "Video calling " + name + ", Boss."
     try:
         encoded = quote(message)
         url     = f"whatsapp://send?phone={mobile_no}&text={encoded}"
@@ -188,12 +211,16 @@ def whatsapp(mobile_no, message, flag, name):
         speak(apex_message)
     except Exception as e:
         print("[APEX] WhatsApp error: " + str(e))
-        speak("Something went wrong with WhatsApp, Boss.")
+        speak("WhatsApp failed Boss.")
 
 # ══════════════════════════════
-#   CHATBOT — Groq
+#   CHATBOT — Groq fast
 # ══════════════════════════════
 def chatbot(query):
+    if _groq is None:
+        msg = "AI brain offline Boss. Check the API key."
+        speak(msg)
+        return msg
     try:
         response = _groq.chat.completions.create(
             model       = "llama-3.1-8b-instant",
@@ -201,19 +228,17 @@ def chatbot(query):
                 {"role": "system", "content": _system_prompt},
                 {"role": "user",   "content": query.strip()}
             ],
-            max_tokens  = 150,
-            temperature = 0.7,
+            max_tokens  = 100,   # faster — shorter responses
+            temperature = 0.6,
         )
         reply = response.choices[0].message.content.strip()
-        reply = re.sub(r'\*+', '', reply)
-        reply = re.sub(r'#+\s?', '', reply)
-        reply = re.sub(r'`+',   '', reply)
-        reply = re.sub(r'\n+',  ' ', reply).strip()
+        reply = re.sub(r'[\*\#\`]+', '', reply)
+        reply = re.sub(r'\n+', ' ', reply).strip()
         print("[APEX] " + reply)
         speak(reply)
         return reply
     except Exception as e:
         print("[APEX ERROR] " + str(e))
-        error_msg = "Sorry Boss, I ran into an issue."
-        speak(error_msg)
-        return error_msg
+        msg = "Sorry Boss, something went wrong."
+        speak(msg)
+        return msg
