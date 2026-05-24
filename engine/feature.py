@@ -21,7 +21,7 @@ DB_PATH = r"C:\Users\KIIT\OneDrive\Desktop\APEX\APEX.db"
 # ══════════════════════════════
 #   GROQ — hardcoded, no .env
 # ══════════════════════════════
-_groq = Groq(api_key="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")
+_groq = Groq(api_key="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")
 
 _system_prompt = (
     "You are APEX, an advanced AI personal assistant. "
