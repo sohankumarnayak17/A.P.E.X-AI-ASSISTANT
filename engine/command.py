@@ -75,7 +75,7 @@ def db_lookup(name: str):
     try:
         with sqlite3.connect(DB_PATH) as conn:
             c = conn.cursor()
-            # exact match
+            # Exact match
             c.execute("SELECT url FROM web_command WHERE LOWER(name) = ?", (name,))
             row = c.fetchone()
             if row:
@@ -84,7 +84,7 @@ def db_lookup(name: str):
             row = c.fetchone()
             if row:
                 return ('app', row[0])
-            # fuzzy match
+            # Fuzzy match
             c.execute("SELECT url FROM web_command WHERE LOWER(name) LIKE ?", ('%' + name + '%',))
             row = c.fetchone()
             if row:

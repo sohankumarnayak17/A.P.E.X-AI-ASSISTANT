@@ -1,32 +1,12 @@
 ﻿import speech_recognition as sr
 import threading
 import time
-import pyttsx3
 import eel
+from engine.feature import speak  # ← shared engine from feature.py — no crash
 
-# ══════════════════════════════
-#   WAKE WORDS
-# ══════════════════════════════
 WAKE_WORDS   = ['hey apex', 'wake up', 'apex wake up', 'hey a pex', 'apex']
 DEVICE_INDEX = 0
-
-_running = False
-
-# ══════════════════════════════
-#   FAST SPEAK — pre-initialized
-# ══════════════════════════════
-_engine = pyttsx3.init('sapi5')
-_voices = _engine.getProperty('voices')
-_engine.setProperty('voice',  _voices[1].id)
-_engine.setProperty('rate',   175)
-_engine.setProperty('volume', 1.0)
-
-def _fast_speak(text):
-    try:
-        _engine.say(text)
-        _engine.runAndWait()
-    except Exception as e:
-        print('[APEX] fast_speak error: ' + str(e))
+_running     = False
 
 # ══════════════════════════════
 #   WAKE DETECTED
@@ -34,7 +14,7 @@ def _fast_speak(text):
 def on_wake():
     print("[APEX] Wake word detected!")
     threading.Thread(
-        target=_fast_speak,
+        target=speak,
         args=("I'm here Boss. What do you need?",),
         daemon=True
     ).start()
@@ -44,13 +24,13 @@ def on_wake():
         print("[APEX] eel error: " + str(e))
 
 # ══════════════════════════════
-#   WAKE WORD LISTENER LOOP
+#   WAKE WORD LOOP
 # ══════════════════════════════
 def _wake_loop():
     r = sr.Recognizer()
     r.energy_threshold = 300
     r.pause_threshold  = 0.5
-    print("[APEX] Wake word detection active — say 'Hey APEX' to wake me up.")
+    print("[APEX] Wake word active — say 'Hey APEX' to wake me up.")
 
     while _running:
         try:

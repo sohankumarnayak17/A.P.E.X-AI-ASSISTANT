@@ -1,15 +1,13 @@
 ﻿import re
 import os
-import struct
 import time
 import subprocess
 import sqlite3
 import webbrowser
-import pyaudio
-import pvporcupine
+import threading
 import pyautogui as autogui
 import eel
-import pyttsx3 as _tts
+import pyttsx3
 from groq import Groq
 from playsound import playsound
 from urllib.parse import quote
@@ -19,7 +17,41 @@ from engine.helper import extract_yt_term
 DB_PATH = r"C:\Users\KIIT\OneDrive\Desktop\APEX\APEX.db"
 
 # ══════════════════════════════
-#   GROQ — hardcoded, no .env
+#   SINGLE PYTTSX3 ENGINE
+#   One instance, thread-safe lock
+#   security.py imports speak() from here
+# ══════════════════════════════
+_tts_lock   = threading.Lock()
+_tts_engine = None
+
+def _get_tts():
+    global _tts_engine
+    if _tts_engine is None:
+        _tts_engine = pyttsx3.init('sapi5')
+        voices = _tts_engine.getProperty('voices')
+        _tts_engine.setProperty('voice',  voices[1].id)  # Zira
+        _tts_engine.setProperty('rate',   175)
+        _tts_engine.setProperty('volume', 1.0)
+    return _tts_engine
+
+def speak(text):
+    try:
+        text = re.sub(r'\*+', '', str(text))
+        text = re.sub(r'#+\s?', '', text)
+        text = re.sub(r'`+',   '', text)
+        text = re.sub(r'\n+',  ' ', text).strip()
+        if not text:
+            return
+        print('[APEX speaks] ' + text)
+        with _tts_lock:
+            engine = _get_tts()
+            engine.say(text)
+            engine.runAndWait()
+    except Exception as e:
+        print('[APEX] speak error: ' + str(e))
+
+# ══════════════════════════════
+#   GROQ — hardcoded key
 # ══════════════════════════════
 _groq = Groq(api_key="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")
 
@@ -33,15 +65,6 @@ _system_prompt = (
 )
 
 # ══════════════════════════════
-#   PYTTSX3 — init once
-# ══════════════════════════════
-_engine = _tts.init('sapi5')
-_voices = _engine.getProperty('voices')
-_engine.setProperty('voice',  _voices[1].id)  # Zira
-_engine.setProperty('rate',   175)
-_engine.setProperty('volume', 1.0)
-
-# ══════════════════════════════
 #   PLAY SOUND
 # ══════════════════════════════
 @eel.expose
@@ -50,21 +73,6 @@ def playAssistantSound():
         playsound("front\\assets\\audio\\radio.mp3")
     except Exception as e:
         print('[APEX] sound error: ' + str(e))
-
-# ══════════════════════════════
-#   SPEAK — fast, no reinit
-# ══════════════════════════════
-def speak(text):
-    try:
-        text = re.sub(r'\*+', '', str(text))
-        text = re.sub(r'#+\s?', '', text)
-        text = re.sub(r'`+',   '', text)
-        text = re.sub(r'\n+',  ' ', text).strip()
-        print('[APEX speaks] ' + text)
-        _engine.say(text)
-        _engine.runAndWait()
-    except Exception as e:
-        print('[APEX] speak error: ' + str(e))
 
 # ══════════════════════════════
 #   OPEN COMMAND
@@ -104,14 +112,14 @@ def playyoutube(query):
         speak("Sorry Boss, I couldn't figure out what to play.")
 
 # ══════════════════════════════
-#   HOTKEY — wake word via
-#   speech recognition (no pvporcupine)
+#   HOTKEY — speech wake word
+#   No pvporcupine needed
 # ══════════════════════════════
 def hotkey():
     import speech_recognition as sr
     r = sr.Recognizer()
-    r.energy_threshold  = 300
-    r.pause_threshold   = 0.5
+    r.energy_threshold = 300
+    r.pause_threshold  = 0.5
     print('[APEX] Wake word listening — say "hey apex"...')
     while True:
         try:
@@ -120,7 +128,7 @@ def hotkey():
                 audio = r.listen(source, timeout=5, phrase_time_limit=3)
             text = r.recognize_google(audio, language='en-in').lower()
             print('[APEX] Heard: ' + text)
-            if 'hey apex' in text or 'wake up' in text or 'apex' in text:
+            if any(w in text for w in ['hey apex', 'wake up', 'apex wake', 'apex']):
                 print('[APEX] Wake word detected!')
                 speak("I'm here Boss. What do you need?")
                 try:
@@ -167,9 +175,9 @@ def whatsapp(mobile_no, message, flag, name):
         message      = ""
         apex_message = "Starting video call with " + name + ", Boss."
     try:
-        encoded_message = quote(message)
-        whatsapp_url    = f"whatsapp://send?phone={mobile_no}&text={encoded_message}"
-        subprocess.run(f"start {whatsapp_url}", shell=True)
+        encoded = quote(message)
+        url     = f"whatsapp://send?phone={mobile_no}&text={encoded}"
+        subprocess.run(f"start {url}", shell=True)
         time.sleep(5)
         if flag == "message":
             autogui.hotkey("enter")
@@ -183,7 +191,7 @@ def whatsapp(mobile_no, message, flag, name):
         speak("Something went wrong with WhatsApp, Boss.")
 
 # ══════════════════════════════
-#   CHATBOT — Groq fast
+#   CHATBOT — Groq
 # ══════════════════════════════
 def chatbot(query):
     try:
