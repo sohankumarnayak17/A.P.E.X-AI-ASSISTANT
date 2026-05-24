@@ -53,7 +53,7 @@ def speak(text):
 # ══════════════════════════════
 #   GROQ — hardcoded key
 # ══════════════════════════════
-_groq = Groq(api_key="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")
+_groq = Groq(api_key="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")
 
 _system_prompt = (
     "You are APEX, an advanced AI personal assistant. "
