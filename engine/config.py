@@ -11,7 +11,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH  = os.path.join(BASE_DIR, "APEX.db")
 
 # Groq
-GROQ_API_KEY   = "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"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_MODEL     = "llama-3.1-8b-instant"
 GROQ_MAX_TOKENS = 120
 GROQ_TEMP       = 0.6

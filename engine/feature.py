@@ -1,4 +1,4 @@
-﻿import re
+import re
 import os
 import time
 import subprocess
@@ -16,10 +16,10 @@ from engine.helper import extract_yt_term
 
 DB_PATH = r"C:\Users\KIIT\OneDrive\Desktop\APEX\APEX.db"
 
-# ══════════════════════════════
+# ------------------------------
 #   SINGLE PYTTSX3 ENGINE
 #   Thread-safe, non-blocking
-# ══════════════════════════════
+# ------------------------------
 _tts_lock   = threading.Lock()
 _tts_engine = None
 
@@ -34,7 +34,7 @@ def _get_tts():
     return _tts_engine
 
 def speak(text):
-    """Non-blocking speak — runs in background thread"""
+    """Non-blocking speak � runs in background thread"""
     def _speak():
         try:
             text_clean = re.sub(r'\*+', '', str(text))
@@ -53,7 +53,7 @@ def speak(text):
     threading.Thread(target=_speak, daemon=True).start()
 
 def speak_wait(text):
-    """Blocking speak — use when you need to wait"""
+    """Blocking speak � use when you need to wait"""
     try:
         text_clean = re.sub(r'\*+', '', str(text))
         text_clean = re.sub(r'#+\s?', '', text_clean)
@@ -69,12 +69,12 @@ def speak_wait(text):
     except Exception as e:
         print('[APEX] speak error: ' + str(e))
 
-# ══════════════════════════════
-#   GROQ — fast setup
-# ══════════════════════════════
+# ------------------------------
+#   GROQ � fast setup
+# ------------------------------
 _groq = None
 try:
-    _groq = Groq(api_key="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")
+    _groq = Groq(api_key=os.getenv("GROQ_API_KEY"))
     print("[APEX] Groq connected.")
 except Exception as e:
     print(f"[APEX] Groq error: {e}")
@@ -85,9 +85,9 @@ _system_prompt = (
     "Call the user Boss. No markdown, no formatting. Plain text only."
 )
 
-# ══════════════════════════════
+# ------------------------------
 #   PLAY SOUND
-# ══════════════════════════════
+# ------------------------------
 @eel.expose
 def playAssistantSound():
     try:
@@ -99,9 +99,9 @@ def playAssistantSound():
     except Exception as e:
         print('[APEX] sound error: ' + str(e))
 
-# ══════════════════════════════
+# ------------------------------
 #   OPEN COMMAND
-# ══════════════════════════════
+# ------------------------------
 def opencommand(query):
     from engine.db import searchDB
     query = query.replace(ASSISTANT_NAME, "").replace("open", "").strip().lower()
@@ -118,9 +118,9 @@ def opencommand(query):
     else:
         speak("Couldn't find " + query + " Boss.")
 
-# ══════════════════════════════
+# ------------------------------
 #   PLAY YOUTUBE
-# ══════════════════════════════
+# ------------------------------
 def playyoutube(query):
     search_term = extract_yt_term(query)
     if not search_term:
@@ -135,15 +135,15 @@ def playyoutube(query):
     else:
         speak("Sorry Boss, what should I play?")
 
-# ══════════════════════════════
-#   HOTKEY — speech wake word
-# ══════════════════════════════
+# ------------------------------
+#   HOTKEY � speech wake word
+# ------------------------------
 def hotkey():
     import speech_recognition as sr
     r = sr.Recognizer()
     r.energy_threshold = 300
     r.pause_threshold  = 0.5
-    print('[APEX] Wake word listening — say "hey apex"...')
+    print('[APEX] Wake word listening � say "hey apex"...')
     while True:
         try:
             with sr.Microphone(device_index=0) as source:
@@ -166,9 +166,9 @@ def hotkey():
             print('[APEX] Hotkey error: ' + str(e))
             time.sleep(1)
 
-# ══════════════════════════════
+# ------------------------------
 #   FIND CONTACT
-# ══════════════════════════════
+# ------------------------------
 def findcontact(query: str):
     try:
         with sqlite3.connect(DB_PATH) as conn:
@@ -182,9 +182,9 @@ def findcontact(query: str):
         print("[APEX] findcontact error: " + str(e))
     return (0, '')
 
-# ══════════════════════════════
+# ------------------------------
 #   WHATSAPP
-# ══════════════════════════════
+# ------------------------------
 def whatsapp(mobile_no, message, flag, name):
     if not mobile_no:
         speak("Couldn't find that contact, Boss.")
@@ -213,9 +213,9 @@ def whatsapp(mobile_no, message, flag, name):
         print("[APEX] WhatsApp error: " + str(e))
         speak("WhatsApp failed Boss.")
 
-# ══════════════════════════════
-#   CHATBOT — Groq fast
-# ══════════════════════════════
+# ------------------------------
+#   CHATBOT � Groq fast
+# ------------------------------
 def chatbot(query):
     if _groq is None:
         msg = "AI brain offline Boss. Check the API key."
@@ -228,7 +228,7 @@ def chatbot(query):
                 {"role": "system", "content": _system_prompt},
                 {"role": "user",   "content": query.strip()}
             ],
-            max_tokens  = 100,   # faster — shorter responses
+            max_tokens  = 100,   # faster � shorter responses
             temperature = 0.6,
         )
         reply = response.choices[0].message.content.strip()
