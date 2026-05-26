@@ -2,251 +2,244 @@ import sqlite3
 import datetime
 import json
 from typing import List, Dict, Optional
+from engine.config import DB_PATH
 
-DB_PATH = "APEX.db"
+# ══════════════════════════════
+#   APEX — Memory & Learning System
+# ══════════════════════════════
 
+def _get_conn():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-# ══════════════════════════════════════════════════
-#   MEMORY SYSTEM — Long-term learning & context
-# ══════════════════════════════════════════════════
 
 def init_memory_db():
-    """Initialize advanced memory tables."""
     try:
-        with sqlite3.connect(DB_PATH) as conn:
-            # Interaction memory with embeddings preparation
-            conn.execute("""
+        with _get_conn() as conn:
+            conn.executescript("""
                 CREATE TABLE IF NOT EXISTS interactions (
-                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                    query       TEXT NOT NULL,
-                    response    TEXT NOT NULL,
-                    success     INTEGER DEFAULT 1,
-                    command_type TEXT,
-                    timestamp   TEXT NOT NULL,
-                    execution_time REAL,
-                    context     TEXT
-                )
-            """)
-            
-            # Command patterns - tracks what user does most
-            conn.execute("""
+                    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                    query          TEXT NOT NULL,
+                    response       TEXT NOT NULL,
+                    success        INTEGER DEFAULT 1,
+                    command_type   TEXT DEFAULT 'general',
+                    timestamp      TEXT NOT NULL,
+                    execution_time REAL DEFAULT 0.0,
+                    context        TEXT
+                );
                 CREATE TABLE IF NOT EXISTS command_patterns (
-                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                    command     TEXT NOT NULL UNIQUE,
-                    frequency   INTEGER DEFAULT 1,
-                    last_used   TEXT NOT NULL,
+                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    command      TEXT NOT NULL UNIQUE,
+                    frequency    INTEGER DEFAULT 1,
+                    last_used    TEXT NOT NULL,
                     success_rate REAL DEFAULT 1.0,
-                    avg_time    REAL DEFAULT 0.0
-                )
-            """)
-            
-            # User preferences learned over time
-            conn.execute("""
+                    avg_time     REAL DEFAULT 0.0
+                );
                 CREATE TABLE IF NOT EXISTS user_preferences (
-                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                    category    TEXT NOT NULL,
-                    key         TEXT NOT NULL,
-                    value       TEXT NOT NULL,
-                    confidence  REAL DEFAULT 0.5,
-                    learned_at  TEXT NOT NULL,
+                    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                    category   TEXT NOT NULL,
+                    key        TEXT NOT NULL,
+                    value      TEXT NOT NULL,
+                    confidence REAL DEFAULT 0.5,
+                    learned_at TEXT NOT NULL,
                     UNIQUE(category, key)
-                )
-            """)
-            
-            # Task success metrics
-            conn.execute("""
+                );
                 CREATE TABLE IF NOT EXISTS task_metrics (
-                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                    task_type   TEXT NOT NULL,
+                    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_type      TEXT NOT NULL UNIQUE,
                     total_attempts INTEGER DEFAULT 0,
-                    successes   INTEGER DEFAULT 0,
-                    failures    INTEGER DEFAULT 0,
-                    avg_duration REAL DEFAULT 0.0
-                )
+                    successes      INTEGER DEFAULT 0,
+                    failures       INTEGER DEFAULT 0,
+                    avg_duration   REAL DEFAULT 0.0
+                );
             """)
-            
             conn.commit()
-            print("[APEX MEMORY] Memory database initialized")
+        print("[APEX MEMORY] Initialized.")
     except Exception as e:
-        print(f'[APEX MEMORY] Init error: {e}')
+        print(f"[APEX MEMORY] Init error: {e}")
 
 
-def record_interaction(query: str, response: str, success: bool = True, 
-                       command_type: str = "general", execution_time: float = 0.0,
-                       context: dict = None):
-    """Record an interaction for learning."""
+def record_interaction(
+    query: str,
+    response: str,
+    success: bool = True,
+    command_type: str = "general",
+    execution_time: float = 0.0,
+    context: dict = None
+):
+    """Record every interaction for learning and pattern detection."""
     try:
-        ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ts           = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         context_json = json.dumps(context) if context else None
-        
-        with sqlite3.connect(DB_PATH) as conn:
+        success_int  = 1 if success else 0
+        success_float = 1.0 if success else 0.0
+
+        with _get_conn() as conn:
             conn.execute("""
-                INSERT INTO interactions 
-                (query, response, success, command_type, timestamp, execution_time, context)
+                INSERT INTO interactions
+                    (query, response, success, command_type, timestamp, execution_time, context)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (query, response, 1 if success else 0, command_type, ts, execution_time, context_json))
-            
-            # Update command patterns
+            """, (query, response, success_int, command_type, ts, execution_time, context_json))
+
             conn.execute("""
                 INSERT INTO command_patterns (command, frequency, last_used, success_rate)
-                VALUES (?, 1, ?, 1.0)
+                VALUES (?, 1, ?, ?)
                 ON CONFLICT(command) DO UPDATE SET
-                    frequency = frequency + 1,
-                    last_used = ?,
-                    success_rate = (success_rate * frequency + ?) / (frequency + 1)
-            """, (command_type, ts, ts, 1.0 if success else 0.0))
-            
+                    frequency    = frequency + 1,
+                    last_used    = excluded.last_used,
+                    success_rate = (success_rate * frequency + excluded.success_rate)
+                                   / (frequency + 1)
+            """, (command_type, ts, success_float))
+
+            conn.execute("""
+                INSERT INTO task_metrics (task_type, total_attempts, successes, failures, avg_duration)
+                VALUES (?, 1, ?, ?, ?)
+                ON CONFLICT(task_type) DO UPDATE SET
+                    total_attempts = total_attempts + 1,
+                    successes      = successes + excluded.successes,
+                    failures       = failures  + excluded.failures,
+                    avg_duration   = (avg_duration * total_attempts + excluded.avg_duration)
+                                     / (total_attempts + 1)
+            """, (command_type, success_int, 1 - success_int, execution_time))
+
             conn.commit()
     except Exception as e:
-        print(f'[APEX MEMORY] Record error: {e}')
+        print(f"[APEX MEMORY] record_interaction error: {e}")
 
 
 def get_recent_context(limit: int = 5) -> List[Dict]:
-    """Get recent interactions as context for the LLM."""
+    """Fetch recent interactions to pass as LLM context."""
     try:
-        with sqlite3.connect(DB_PATH) as conn:
-            c = conn.cursor()
-            c.execute("""
+        with _get_conn() as conn:
+            rows = conn.execute("""
                 SELECT query, response, command_type, timestamp
                 FROM interactions
-                ORDER BY id DESC
-                LIMIT ?
-            """, (limit,))
-            rows = c.fetchall()
+                ORDER BY id DESC LIMIT ?
+            """, (limit,)).fetchall()
             return [
-                {
-                    "query": r[0],
-                    "response": r[1],
-                    "type": r[2],
-                    "time": r[3]
-                }
+                {"query": r[0], "response": r[1], "type": r[2], "time": r[3]}
                 for r in reversed(rows)
             ]
     except Exception as e:
-        print(f'[APEX MEMORY] Context retrieval error: {e}')
+        print(f"[APEX MEMORY] get_recent_context error: {e}")
         return []
 
 
 def get_command_patterns(top_n: int = 10) -> List[Dict]:
-    """Get most frequent commands for proactive suggestions."""
+    """Return most-used command types for proactive suggestions."""
     try:
-        with sqlite3.connect(DB_PATH) as conn:
-            c = conn.cursor()
-            c.execute("""
+        with _get_conn() as conn:
+            rows = conn.execute("""
                 SELECT command, frequency, last_used, success_rate
                 FROM command_patterns
-                ORDER BY frequency DESC
-                LIMIT ?
-            """, (top_n,))
-            rows = c.fetchall()
+                ORDER BY frequency DESC LIMIT ?
+            """, (top_n,)).fetchall()
             return [
-                {
-                    "command": r[0],
-                    "frequency": r[1],
-                    "last_used": r[2],
-                    "success_rate": r[3]
-                }
+                {"command": r[0], "frequency": r[1],
+                 "last_used": r[2], "success_rate": r[3]}
                 for r in rows
             ]
     except Exception as e:
-        print(f'[APEX MEMORY] Pattern retrieval error: {e}')
+        print(f"[APEX MEMORY] get_command_patterns error: {e}")
         return []
 
 
 def learn_preference(category: str, key: str, value: str, confidence: float = 0.7):
-    """Learn a user preference over time."""
+    """Upsert a learned preference, incrementally raising confidence."""
     try:
         ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with sqlite3.connect(DB_PATH) as conn:
+        with _get_conn() as conn:
             conn.execute("""
                 INSERT INTO user_preferences (category, key, value, confidence, learned_at)
                 VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(category, key) DO UPDATE SET
-                    value = ?,
+                    value      = excluded.value,
                     confidence = MIN(1.0, confidence + 0.1),
-                    learned_at = ?
-            """, (category, key, value, confidence, ts, value, ts))
+                    learned_at = excluded.learned_at
+            """, (category, key, value, confidence, ts))
             conn.commit()
     except Exception as e:
-        print(f'[APEX MEMORY] Preference learning error: {e}')
+        print(f"[APEX MEMORY] learn_preference error: {e}")
 
 
 def get_preferences(category: Optional[str] = None) -> List[Dict]:
-    """Retrieve learned preferences."""
+    """Retrieve all or category-filtered preferences."""
     try:
-        with sqlite3.connect(DB_PATH) as conn:
-            c = conn.cursor()
+        with _get_conn() as conn:
             if category:
-                c.execute("""
+                rows = conn.execute("""
                     SELECT category, key, value, confidence
-                    FROM user_preferences
-                    WHERE category = ?
+                    FROM user_preferences WHERE category = ?
                     ORDER BY confidence DESC
-                """, (category,))
+                """, (category,)).fetchall()
             else:
-                c.execute("""
+                rows = conn.execute("""
                     SELECT category, key, value, confidence
-                    FROM user_preferences
-                    ORDER BY confidence DESC
-                """)
-            rows = c.fetchall()
+                    FROM user_preferences ORDER BY confidence DESC
+                """).fetchall()
             return [
-                {
-                    "category": r[0],
-                    "key": r[1],
-                    "value": r[2],
-                    "confidence": r[3]
-                }
+                {"category": r[0], "key": r[1],
+                 "value": r[2], "confidence": r[3]}
                 for r in rows
             ]
     except Exception as e:
-        print(f'[APEX MEMORY] Preference retrieval error: {e}')
+        print(f"[APEX MEMORY] get_preferences error: {e}")
         return []
 
 
 def analyze_user_behavior() -> Dict:
-    """Analyze user behavior patterns for proactive intelligence."""
+    """Return peak hour, most-used command, and daily average."""
     try:
-        with sqlite3.connect(DB_PATH) as conn:
-            c = conn.cursor()
-            
-            # Most active hour
-            c.execute("""
-                SELECT strftime('%H', timestamp) as hour, COUNT(*) as count
+        with _get_conn() as conn:
+            peak = conn.execute("""
+                SELECT strftime('%H', timestamp) as h, COUNT(*) as c
+                FROM interactions GROUP BY h ORDER BY c DESC LIMIT 1
+            """).fetchone()
+
+            common = conn.execute("""
+                SELECT command_type, COUNT(*) as c
+                FROM interactions GROUP BY command_type ORDER BY c DESC LIMIT 1
+            """).fetchone()
+
+            freq = conn.execute("""
+                SELECT COUNT(DISTINCT DATE(timestamp)), COUNT(*)
                 FROM interactions
-                GROUP BY hour
-                ORDER BY count DESC
-                LIMIT 1
-            """)
-            peak_hour = c.fetchone()
-            
-            # Most common command type
-            c.execute("""
-                SELECT command_type, COUNT(*) as count
-                FROM interactions
-                GROUP BY command_type
-                ORDER BY count DESC
-                LIMIT 1
-            """)
-            common_cmd = c.fetchone()
-            
-            # Average interaction frequency per day
-            c.execute("""
-                SELECT COUNT(DISTINCT DATE(timestamp)) as days,
-                       COUNT(*) as total
-                FROM interactions
-            """)
-            freq = c.fetchone()
-            
-            return {
-                "peak_hour": int(peak_hour[0]) if peak_hour else None,
-                "most_common_command": common_cmd[0] if common_cmd else None,
-                "daily_avg_interactions": round(freq[1] / max(freq[0], 1), 1) if freq else 0
-            }
+            """).fetchone()
+
+        return {
+            "peak_hour":             int(peak[0]) if peak else None,
+            "most_common_command":   common[0]    if common else None,
+            "daily_avg_interactions": round(freq[1] / max(freq[0], 1), 1) if freq else 0,
+        }
     except Exception as e:
-        print(f'[APEX MEMORY] Behavior analysis error: {e}')
+        print(f"[APEX MEMORY] analyze_user_behavior error: {e}")
         return {}
 
 
-# Initialize on import
+def get_task_metrics() -> List[Dict]:
+    """Return success/failure stats per task type."""
+    try:
+        with _get_conn() as conn:
+            rows = conn.execute("""
+                SELECT task_type, total_attempts, successes, failures, avg_duration
+                FROM task_metrics ORDER BY total_attempts DESC
+            """).fetchall()
+            return [
+                {
+                    "task":         r[0],
+                    "attempts":     r[1],
+                    "successes":    r[2],
+                    "failures":     r[3],
+                    "avg_duration": round(r[4], 3),
+                    "success_rate": round(r[2] / max(r[1], 1), 2),
+                }
+                for r in rows
+            ]
+    except Exception as e:
+        print(f"[APEX MEMORY] get_task_metrics error: {e}")
+        return []
+
+
+# Auto-init on import
 init_memory_db()
