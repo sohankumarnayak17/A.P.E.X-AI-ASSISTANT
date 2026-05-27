@@ -1,145 +1,47 @@
-import sqlite3
-from engine.config import DB_PATH
+import re
 
 # ══════════════════════════════
-#   APEX — Database Layer
+#   APEX — Helper Utilities
 # ══════════════════════════════
 
-def _get_conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+def extract_yt_term(command: str) -> str:
+    """Extract search term from 'play X on youtube' style commands."""
+    command = command.strip()
+    # Pattern: play ... on youtube
+    match = re.search(r"play\s+(.+?)\s+on\s+youtube", command, re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    # Pattern: youtube play ...
+    match = re.search(r"youtube\s+play\s+(.+)", command, re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    # Pattern: play ... youtube
+    match = re.search(r"play\s+(.+?)\s+youtube", command, re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    return ""
 
 
-def init_db():
-    """Create all tables and seed default commands if empty."""
-    with _get_conn() as conn:
-        conn.executescript("""
-            CREATE TABLE IF NOT EXISTS web_command (
-                id    INTEGER PRIMARY KEY AUTOINCREMENT,
-                name  TEXT NOT NULL UNIQUE,
-                url   TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS sys_command (
-                id    INTEGER PRIMARY KEY AUTOINCREMENT,
-                name  TEXT NOT NULL UNIQUE,
-                path  TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS contacts (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                name          TEXT NOT NULL,
-                mobile_number TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS chat_history (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                sender    TEXT NOT NULL CHECK(sender IN ('user','apex')),
-                message   TEXT NOT NULL,
-                timestamp TEXT NOT NULL
-            );
-        """)
-        conn.commit()
-        _seed_defaults(conn)
+def remove_words(text: str, words_to_remove: list) -> str:
+    """Remove specific words from a string (case-insensitive)."""
+    stop = {w.lower() for w in words_to_remove}
+    return " ".join(w for w in text.split() if w.lower() not in stop)
 
 
-def _seed_defaults(conn):
-    """Insert default web commands if the table is empty."""
-    count = conn.execute("SELECT COUNT(*) FROM web_command").fetchone()[0]
-    if count > 0:
-        return
-    defaults = [
-        ("youtube",   "https://www.youtube.com"),
-        ("google",    "https://www.google.com"),
-        ("github",    "https://www.github.com"),
-        ("gmail",     "https://mail.google.com"),
-        ("maps",      "https://maps.google.com"),
-        ("reddit",    "https://www.reddit.com"),
-        ("twitter",   "https://www.twitter.com"),
-        ("instagram", "https://www.instagram.com"),
-        ("linkedin",  "https://www.linkedin.com"),
-        ("whatsapp",  "https://web.whatsapp.com"),
-        ("netflix",   "https://www.netflix.com"),
-        ("spotify",   "https://open.spotify.com"),
-        ("wikipedia", "https://www.wikipedia.org"),
-        ("stackoverflow", "https://stackoverflow.com"),
-    ]
-    conn.executemany(
-        "INSERT OR IGNORE INTO web_command (name, url) VALUES (?, ?)", defaults
-    )
-    conn.commit()
-    print("[APEX DB] Default web commands seeded.")
+def clean_query(query: str, remove: list = None) -> str:
+    """Lowercase, strip, and optionally remove filler words."""
+    q = query.lower().strip()
+    if remove:
+        q = remove_words(q, remove)
+    return q
 
 
-def searchDB(query: str):
-    """
-    Search web_command then sys_command.
-    Returns ('web', url) | ('app', path) | (None, None)
-    Tries exact match first, then fuzzy LIKE.
-    """
-    query = query.strip().lower()
-    if not query:
-        return (None, None)
-
-    try:
-        with _get_conn() as conn:
-            c = conn.cursor()
-            # Exact match
-            c.execute("SELECT url FROM web_command WHERE LOWER(name) = ?", (query,))
-            row = c.fetchone()
-            if row:
-                return ("web", row[0])
-
-            c.execute("SELECT path FROM sys_command WHERE LOWER(name) = ?", (query,))
-            row = c.fetchone()
-            if row:
-                return ("app", row[0])
-
-            # Fuzzy match
-            like = f"%{query}%"
-            c.execute("SELECT url FROM web_command WHERE LOWER(name) LIKE ?", (like,))
-            row = c.fetchone()
-            if row:
-                return ("web", row[0])
-
-            c.execute("SELECT path FROM sys_command WHERE LOWER(name) LIKE ?", (like,))
-            row = c.fetchone()
-            if row:
-                return ("app", row[0])
-
-    except Exception as e:
-        print(f"[APEX DB] searchDB error: {e}")
-
-    return (None, None)
-
-
-def add_web_command(name: str, url: str) -> bool:
-    """Add or update a web command."""
-    try:
-        with _get_conn() as conn:
-            conn.execute(
-                "INSERT OR REPLACE INTO web_command (name, url) VALUES (?, ?)",
-                (name.lower().strip(), url.strip())
-            )
-            conn.commit()
-        return True
-    except Exception as e:
-        print(f"[APEX DB] add_web_command error: {e}")
-        return False
-
-
-def add_sys_command(name: str, path: str) -> bool:
-    """Add or update a system command."""
-    try:
-        with _get_conn() as conn:
-            conn.execute(
-                "INSERT OR REPLACE INTO sys_command (name, path) VALUES (?, ?)",
-                (name.lower().strip(), path.strip())
-            )
-            conn.commit()
-        return True
-    except Exception as e:
-        print(f"[APEX DB] add_sys_command error: {e}")
-        return False
-
-
-# Auto-init on import
-init_db()
+def extract_name_from_query(query: str, keywords: list) -> str:
+    """Extract a name after a keyword. E.g. 'call john' → 'john'."""
+    q = query.lower()
+    for kw in keywords:
+        if kw in q:
+            name = q.split(kw, 1)[-1].strip()
+            if name:
+                return name
+    return ""

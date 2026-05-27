@@ -82,7 +82,7 @@ def speak_wait(text: str):
 # ══════════════════════════════
 _groq_client = None
 try:
-    _groq_client = Groq(api_key=)
+    _groq_client = Groq(api_key=GROQ_API_KEY)
     print("[APEX] Groq connected.")
 except Exception as e:
     print(f"[APEX] Groq init error: {e}")
