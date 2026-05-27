@@ -1,202 +1,175 @@
-import re
-import os
-import time
-import subprocess
-import sqlite3
-import webbrowser
+﻿import re
 import threading
-import pyautogui as autogui
+import subprocess
+import webbrowser
+import time
 import eel
 import pyttsx3
 from groq import Groq
 from playsound import playsound
 from urllib.parse import quote
-from engine.config import ASSISTANT_NAME
+
+from engine.config import (
+    ASSISTANT_NAME, GROQ_API_KEY, GROQ_MODEL,
+    GROQ_MAX_TOKENS, GROQ_TEMP, SYSTEM_PROMPT,
+    TTS_VOICE_INDEX, TTS_RATE, TTS_VOLUME, DB_PATH
+)
 from engine.helper import extract_yt_term
 
-DB_PATH = r"C:\Users\KIIT\OneDrive\Desktop\APEX\APEX.db"
+import sqlite3
 
-# ------------------------------
-#   SINGLE PYTTSX3 ENGINE
-#   Thread-safe, non-blocking
-# ------------------------------
+# ══════════════════════════════
+#   TTS ENGINE — thread-safe singleton
+# ══════════════════════════════
 _tts_lock   = threading.Lock()
 _tts_engine = None
 
-def _get_tts():
+def _get_tts() -> pyttsx3.Engine:
     global _tts_engine
     if _tts_engine is None:
-        _tts_engine = pyttsx3.init('sapi5')
-        voices = _tts_engine.getProperty('voices')
-        _tts_engine.setProperty('voice',  voices[1].id)
-        _tts_engine.setProperty('rate',   185)   # faster rate
-        _tts_engine.setProperty('volume', 1.0)
+        _tts_engine = pyttsx3.init("sapi5")
+        voices = _tts_engine.getProperty("voices")
+        if TTS_VOICE_INDEX < len(voices):
+            _tts_engine.setProperty("voice",  voices[TTS_VOICE_INDEX].id)
+        _tts_engine.setProperty("rate",   TTS_RATE)
+        _tts_engine.setProperty("volume", TTS_VOLUME)
     return _tts_engine
 
-def speak(text):
-    """Non-blocking speak � runs in background thread"""
-    def _speak():
-        try:
-            text_clean = re.sub(r'\*+', '', str(text))
-            text_clean = re.sub(r'#+\s?', '', text_clean)
-            text_clean = re.sub(r'`+',   '', text_clean)
-            text_clean = re.sub(r'\n+',  ' ', text_clean).strip()
-            if not text_clean:
-                return
-            print('[APEX speaks] ' + text_clean)
-            with _tts_lock:
-                engine = _get_tts()
-                engine.say(text_clean)
-                engine.runAndWait()
-        except Exception as e:
-            print('[APEX] speak error: ' + str(e))
-    threading.Thread(target=_speak, daemon=True).start()
 
-def speak_wait(text):
-    """Blocking speak � use when you need to wait"""
-    try:
-        text_clean = re.sub(r'\*+', '', str(text))
-        text_clean = re.sub(r'#+\s?', '', text_clean)
-        text_clean = re.sub(r'`+',   '', text_clean)
-        text_clean = re.sub(r'\n+',  ' ', text_clean).strip()
-        if not text_clean:
+def _clean_text(text: str) -> str:
+    """Strip markdown and normalise whitespace for speech."""
+    text = re.sub(r"\*+",  "", str(text))
+    text = re.sub(r"#+\s?","", text)
+    text = re.sub(r"`+",   "", text)
+    text = re.sub(r"\n+",  " ", text)
+    return text.strip()
+
+
+def speak(text: str):
+    """Non-blocking TTS — runs in a background daemon thread."""
+    def _run():
+        clean = _clean_text(text)
+        if not clean:
             return
-        print('[APEX speaks] ' + text_clean)
+        print(f"[APEX] {clean}")
         with _tts_lock:
-            engine = _get_tts()
-            engine.say(text_clean)
-            engine.runAndWait()
-    except Exception as e:
-        print('[APEX] speak error: ' + str(e))
+            try:
+                engine = _get_tts()
+                engine.say(clean)
+                engine.runAndWait()
+            except Exception as e:
+                print(f"[APEX] TTS error: {e}")
+    threading.Thread(target=_run, daemon=True).start()
 
-# ------------------------------
-#   GROQ � fast setup
-# ------------------------------
-_groq = None
+
+def speak_wait(text: str):
+    """Blocking TTS — waits until speech is complete."""
+    clean = _clean_text(text)
+    if not clean:
+        return
+    print(f"[APEX] {clean}")
+    with _tts_lock:
+        try:
+            engine = _get_tts()
+            engine.say(clean)
+            engine.runAndWait()
+        except Exception as e:
+            print(f"[APEX] TTS error: {e}")
+
+
+# ══════════════════════════════
+#   GROQ CLIENT
+# ══════════════════════════════
+_groq_client = None
 try:
-    _groq = Groq(api_key=os.getenv("GROQ_API_KEY"))
+    _groq_client = Groq(api_key=)
     print("[APEX] Groq connected.")
 except Exception as e:
-    print(f"[APEX] Groq error: {e}")
+    print(f"[APEX] Groq init error: {e}")
 
-_system_prompt = (
-    "You are APEX, an advanced AI assistant like FRIDAY from Iron Man. "
-    "Be sharp and concise. Max 1-2 sentences. "
-    "Call the user Boss. No markdown, no formatting. Plain text only."
-)
 
-# ------------------------------
-#   PLAY SOUND
-# ------------------------------
+# ══════════════════════════════
+#   SOUND
+# ══════════════════════════════
 @eel.expose
 def playAssistantSound():
-    try:
-        threading.Thread(
-            target=playsound,
-            args=("front\\assets\\audio\\radio.mp3",),
-            daemon=True
-        ).start()
-    except Exception as e:
-        print('[APEX] sound error: ' + str(e))
-
-# ------------------------------
-#   OPEN COMMAND
-# ------------------------------
-def opencommand(query):
-    from engine.db import searchDB
-    query = query.replace(ASSISTANT_NAME, "").replace("open", "").strip().lower()
-    if not query:
-        speak('What would you like me to open, Boss?')
-        return
-    kind, value = searchDB(query)
-    if kind == 'web':
-        speak('Opening ' + query + ', Boss.')
-        webbrowser.open(value)
-    elif kind == 'app':
-        speak('Launching ' + query + ', Boss.')
-        subprocess.Popen(value)
-    else:
-        speak("Couldn't find " + query + " Boss.")
-
-# ------------------------------
-#   PLAY YOUTUBE
-# ------------------------------
-def playyoutube(query):
-    search_term = extract_yt_term(query)
-    if not search_term:
-        search_term = (query
-                       .replace("play", "")
-                       .replace("on youtube", "")
-                       .replace("youtube", "")
-                       .strip())
-    if search_term:
-        speak("Playing " + search_term + " on YouTube, Boss.")
-        webbrowser.open("https://www.youtube.com/results?search_query=" + quote(search_term))
-    else:
-        speak("Sorry Boss, what should I play?")
-
-# ------------------------------
-#   HOTKEY � speech wake word
-# ------------------------------
-def hotkey():
-    import speech_recognition as sr
-    r = sr.Recognizer()
-    r.energy_threshold = 300
-    r.pause_threshold  = 0.5
-    print('[APEX] Wake word listening � say "hey apex"...')
-    while True:
+    def _play():
         try:
-            with sr.Microphone(device_index=0) as source:
-                r.adjust_for_ambient_noise(source, duration=0.2)
-                audio = r.listen(source, timeout=5, phrase_time_limit=3)
-            text = r.recognize_google(audio, language='en-in').lower()
-            print('[APEX] Heard: ' + text)
-            if any(w in text for w in ['hey apex', 'wake up', 'apex wake', 'apex']):
-                print('[APEX] Wake word detected!')
-                speak("I'm here Boss.")
-                try:
-                    eel.bringToFront()
-                except:
-                    pass
-        except sr.WaitTimeoutError:
-            continue
-        except sr.UnknownValueError:
-            continue
+            playsound(r"front\assets\audio\radio.mp3")
         except Exception as e:
-            print('[APEX] Hotkey error: ' + str(e))
-            time.sleep(1)
+            print(f"[APEX] Sound error: {e}")
+    threading.Thread(target=_play, daemon=True).start()
 
-# ------------------------------
-#   FIND CONTACT
-# ------------------------------
+
+# ══════════════════════════════
+#   OPEN COMMAND
+# ══════════════════════════════
+def opencommand(query: str):
+    from engine.db import searchDB
+    target = (query
+              .replace(ASSISTANT_NAME, "")
+              .replace("open", "")
+              .strip()
+              .lower())
+    if not target:
+        speak("What would you like me to open, Boss?")
+        return
+    kind, value = searchDB(target)
+    if kind == "web":
+        speak(f"Opening {target}, Boss.")
+        webbrowser.open(value)
+    elif kind == "app":
+        speak(f"Launching {target}, Boss.")
+        try:
+            subprocess.Popen(value)
+        except Exception as e:
+            speak("Could not launch that, Boss.")
+            print(f"[APEX] Popen error: {e}")
+    else:
+        speak(f"Couldn't find {target}, Boss.")
+
+
+# ══════════════════════════════
+#   YOUTUBE
+# ══════════════════════════════
+def playyoutube(query: str):
+    term = extract_yt_term(query)
+    if not term:
+        term = (query
+                .replace("play", "")
+                .replace("on youtube", "")
+                .replace("youtube", "")
+                .strip())
+    if term:
+        speak(f"Playing {term} on YouTube, Boss.")
+        webbrowser.open("https://www.youtube.com/results?search_query=" + quote(term))
+    else:
+        speak("What would you like me to play, Boss?")
+
+
+# ══════════════════════════════
+#   CONTACTS
+# ══════════════════════════════
 def findcontact(query: str):
     try:
         with sqlite3.connect(DB_PATH) as conn:
-            c = conn.cursor()
-            c.execute("SELECT name, mobile_number FROM contacts")
-            rows = c.fetchall()
-            for name, mobile_number in rows:
+            for row in conn.execute("SELECT name, mobile_number FROM contacts"):
+                name, number = row
                 if name.lower() in query.lower():
-                    return (mobile_number, name)
+                    return (number, name)
     except Exception as e:
-        print("[APEX] findcontact error: " + str(e))
-    return (0, '')
+        print(f"[APEX] findcontact error: {e}")
+    return (0, "")
 
-# ------------------------------
+
+# ══════════════════════════════
 #   WHATSAPP
-# ------------------------------
-def whatsapp(mobile_no, message, flag, name):
+# ══════════════════════════════
+def whatsapp(mobile_no: str, message: str, flag: str, name: str):
+    import pyautogui as autogui
     if not mobile_no:
         speak("Couldn't find that contact, Boss.")
         return
-    if flag == "message":
-        apex_message = "Message sent, Boss."
-    elif flag == "call":
-        message      = ""
-        apex_message = "Calling " + name + ", Boss."
-    else:
-        message      = ""
-        apex_message = "Video calling " + name + ", Boss."
     try:
         encoded = quote(message)
         url     = f"whatsapp://send?phone={mobile_no}&text={encoded}"
@@ -204,41 +177,81 @@ def whatsapp(mobile_no, message, flag, name):
         time.sleep(5)
         if flag == "message":
             autogui.hotkey("enter")
+            speak(f"Message sent to {name}, Boss.")
         elif flag == "call":
             autogui.hotkey("ctrl", "shift", "p")
+            speak(f"Calling {name}, Boss.")
         else:
             autogui.hotkey("ctrl", "shift", "v")
-        speak(apex_message)
+            speak(f"Video calling {name}, Boss.")
     except Exception as e:
-        print("[APEX] WhatsApp error: " + str(e))
-        speak("WhatsApp failed Boss.")
+        speak("WhatsApp action failed, Boss.")
+        print(f"[APEX] WhatsApp error: {e}")
 
-# ------------------------------
-#   CHATBOT � Groq fast
-# ------------------------------
-def chatbot(query):
-    if _groq is None:
-        msg = "AI brain offline Boss. Check the API key."
+
+# ══════════════════════════════
+#   CHATBOT — Groq
+# ══════════════════════════════
+def chatbot(query: str, context: list = None) -> str:
+    """
+    Send query to Groq LLM.
+    Optionally pass recent context as list of {role, content} dicts.
+    """
+    if _groq_client is None:
+        msg = "AI brain offline, Boss. Check the API key."
         speak(msg)
         return msg
     try:
-        response = _groq.chat.completions.create(
-            model       = "llama-3.1-8b-instant",
-            messages    = [
-                {"role": "system", "content": _system_prompt},
-                {"role": "user",   "content": query.strip()}
-            ],
-            max_tokens  = 100,   # faster � shorter responses
-            temperature = 0.6,
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        if context:
+            messages.extend(context)
+        messages.append({"role": "user", "content": query.strip()})
+
+        resp  = _groq_client.chat.completions.create(
+            model       = GROQ_MODEL,
+            messages    = messages,
+            max_tokens  = GROQ_MAX_TOKENS,
+            temperature = GROQ_TEMP,
         )
-        reply = response.choices[0].message.content.strip()
-        reply = re.sub(r'[\*\#\`]+', '', reply)
-        reply = re.sub(r'\n+', ' ', reply).strip()
-        print("[APEX] " + reply)
+        reply = resp.choices[0].message.content.strip()
+        reply = re.sub(r"[\*\#\`]+", "", reply)
+        reply = re.sub(r"\n+",       " ", reply).strip()
         speak(reply)
         return reply
     except Exception as e:
-        print("[APEX ERROR] " + str(e))
+        print(f"[APEX] Groq error: {e}")
         msg = "Sorry Boss, something went wrong."
         speak(msg)
         return msg
+
+
+# ══════════════════════════════
+#   WAKE WORD HOTKEY
+# ══════════════════════════════
+def hotkey():
+    """Blocking wake-word listener — run in a daemon thread."""
+    import speech_recognition as sr
+    from engine.config import WAKE_WORDS, MIC_DEVICE
+    r = sr.Recognizer()
+    r.energy_threshold = 300
+    r.pause_threshold  = 0.5
+    print("[APEX] Hotkey listener ready.")
+    while True:
+        try:
+            with sr.Microphone(device_index=MIC_DEVICE) as source:
+                r.adjust_for_ambient_noise(source, duration=0.2)
+                audio = r.listen(source, timeout=4, phrase_time_limit=3)
+            text = r.recognize_google(audio, language="en-in").lower()
+            if any(w in text for w in WAKE_WORDS):
+                speak("I'm here, Boss.")
+                try:
+                    eel.bringToFront()
+                except Exception:
+                    pass
+        except sr.WaitTimeoutError:
+            continue
+        except sr.UnknownValueError:
+            continue
+        except Exception as e:
+            print(f"[APEX] Hotkey error: {e}")
+            time.sleep(1)
