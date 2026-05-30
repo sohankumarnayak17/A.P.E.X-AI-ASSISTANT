@@ -1,4 +1,5 @@
-﻿import re
+﻿import os
+import re
 import threading
 import subprocess
 import webbrowser
@@ -8,6 +9,7 @@ import pyttsx3
 from groq import Groq
 from playsound import playsound
 from urllib.parse import quote
+import sqlite3
 
 from engine.config import (
     ASSISTANT_NAME, GROQ_API_KEY, GROQ_MODEL,
@@ -15,8 +17,6 @@ from engine.config import (
     TTS_VOICE_INDEX, TTS_RATE, TTS_VOLUME, DB_PATH
 )
 from engine.helper import extract_yt_term
-
-import sqlite3
 
 # ══════════════════════════════
 #   TTS ENGINE — thread-safe singleton
@@ -37,16 +37,15 @@ def _get_tts() -> pyttsx3.Engine:
 
 
 def _clean_text(text: str) -> str:
-    """Strip markdown and normalise whitespace for speech."""
-    text = re.sub(r"\*+",  "", str(text))
-    text = re.sub(r"#+\s?","", text)
-    text = re.sub(r"`+",   "", text)
-    text = re.sub(r"\n+",  " ", text)
+    text = re.sub(r"\*+",   "", str(text))
+    text = re.sub(r"#+\s?", "", text)
+    text = re.sub(r"`+",    "", text)
+    text = re.sub(r"\n+",   " ", text)
     return text.strip()
 
 
 def speak(text: str):
-    """Non-blocking TTS — runs in a background daemon thread."""
+    """Non-blocking TTS."""
     def _run():
         clean = _clean_text(text)
         if not clean:
@@ -63,7 +62,7 @@ def speak(text: str):
 
 
 def speak_wait(text: str):
-    """Blocking TTS — waits until speech is complete."""
+    """Blocking TTS."""
     clean = _clean_text(text)
     if not clean:
         return
@@ -102,6 +101,45 @@ def playAssistantSound():
 
 
 # ══════════════════════════════
+#   LAUNCH LOCAL APP — robust
+# ══════════════════════════════
+def _launch_app(path: str, name: str):
+    """
+    Launch a local app by path.
+    Handles: normal .exe, UWP ms-settings: URIs, shell:AppsFolder targets.
+    """
+    try:
+        # Windows Settings / URI protocol (e.g. "ms-settings:")
+        if ":" in path and not os.path.splitext(path)[1]:
+            subprocess.run(["start", "", path], shell=True)
+            return True
+
+        # Normal executable
+        if os.path.exists(path):
+            subprocess.Popen(
+                [path],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+            )
+            return True
+
+        # Last resort — let Windows shell find it by name
+        subprocess.run(["start", "", name], shell=True)
+        return True
+
+    except Exception as e:
+        print(f"[APEX] _launch_app error ({path}): {e}")
+        # Final fallback: os.startfile
+        try:
+            os.startfile(path)
+            return True
+        except Exception as e2:
+            print(f"[APEX] os.startfile failed: {e2}")
+        return False
+
+
+# ══════════════════════════════
 #   OPEN COMMAND
 # ══════════════════════════════
 def opencommand(query: str):
@@ -114,19 +152,26 @@ def opencommand(query: str):
     if not target:
         speak("What would you like me to open, Boss?")
         return
+
     kind, value = searchDB(target)
+
     if kind == "web":
         speak(f"Opening {target}, Boss.")
         webbrowser.open(value)
+
     elif kind == "app":
         speak(f"Launching {target}, Boss.")
-        try:
-            subprocess.Popen(value)
-        except Exception as e:
-            speak("Could not launch that, Boss.")
-            print(f"[APEX] Popen error: {e}")
+        success = _launch_app(value, target)
+        if not success:
+            speak(f"Could not launch {target}, Boss. You may need to add its path manually.")
+
     else:
-        speak(f"Couldn't find {target}, Boss.")
+        # Nothing in DB — try Windows shell directly as last resort
+        speak(f"Searching for {target}, Boss.")
+        try:
+            subprocess.run(["start", "", target], shell=True)
+        except Exception:
+            speak(f"Couldn't find {target}, Boss.")
 
 
 # ══════════════════════════════
@@ -190,13 +235,9 @@ def whatsapp(mobile_no: str, message: str, flag: str, name: str):
 
 
 # ══════════════════════════════
-#   CHATBOT — Groq
+#   CHATBOT — Groq with context
 # ══════════════════════════════
 def chatbot(query: str, context: list = None) -> str:
-    """
-    Send query to Groq LLM.
-    Optionally pass recent context as list of {role, content} dicts.
-    """
     if _groq_client is None:
         msg = "AI brain offline, Boss. Check the API key."
         speak(msg)
@@ -229,7 +270,6 @@ def chatbot(query: str, context: list = None) -> str:
 #   WAKE WORD HOTKEY
 # ══════════════════════════════
 def hotkey():
-    """Blocking wake-word listener — run in a daemon thread."""
     import speech_recognition as sr
     from engine.config import WAKE_WORDS, MIC_DEVICE
     r = sr.Recognizer()
